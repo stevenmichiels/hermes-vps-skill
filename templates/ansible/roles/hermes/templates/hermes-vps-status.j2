@@ -1,0 +1,224 @@
+#!/usr/bin/env bash
+set -u
+
+COMPOSE_FILE="{{ hermes_compose_file }}"
+ENV_FILE="{{ hermes_env_file }}"
+GATEWAY_PORT="{{ hermes_gateway_port }}"
+DASHBOARD_PORT="{{ hermes_dashboard_port }}"
+DASHBOARD_ENABLED="{{ (hermes_dashboard_enabled | bool) | ternary('true', 'false') }}"
+BACKUP_DIR="{{ hermes_backup_dir }}"
+HERMES_IMAGE="{{ hermes_image }}"
+HERMES_DATA_DIR="{{ hermes_data_dir }}"
+REQUIRE_TELEGRAM="{{ (hermes_require_telegram | bool) | ternary('true', 'false') }}"
+REQUIRE_ALLOWED_USERS="{{ (hermes_require_allowed_users | bool) | ternary('true', 'false') }}"
+INSTALL_FIRECRAWL="{{ (install_firecrawl | bool) | ternary('true', 'false') }}"
+FIRECRAWL_ENABLE_SERVICE="{{ (firecrawl_enable_service | bool) | ternary('true', 'false') }}"
+FIRECRAWL_COMPOSE_FILE="{{ firecrawl_compose_file }}"
+FIRECRAWL_ENV_FILE="{{ firecrawl_env_file }}"
+FIRECRAWL_API_PORT="{{ firecrawl_api_port }}"
+FIRECRAWL_HERMES_NETWORK="{{ firecrawl_hermes_network | default('hermes_default') }}"
+
+failures=0
+
+ok() { printf 'OK %s\n' "$*"; }
+warn() { printf 'WARN %s\n' "$*"; }
+fail() { printf 'FAIL %s\n' "$*"; failures=$((failures + 1)); }
+
+has_env_value() {
+  local key="$1" value
+  value="$(grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | cut -d= -f2- | sed -e 's/^["'\'']//; s/["'\'']$//' || true)"
+  [ -n "$value" ] && [ "$value" != "placeholder" ] && [ "$value" != "__SET_ME__" ]
+}
+
+if tailscale ip -4 >/tmp/hermes-vps-tailscale-ip 2>/dev/null; then
+  ts_ip="$(head -n1 /tmp/hermes-vps-tailscale-ip)"
+  case "$ts_ip" in
+    100.*) ok "tailscale_ip=$ts_ip" ;;
+    *) fail "tailscale_ip_unexpected=$ts_ip" ;;
+  esac
+else
+  fail "tailscale_not_ready"
+fi
+
+if [ -f "$COMPOSE_FILE" ]; then
+  ok "compose_file_present=$COMPOSE_FILE"
+else
+  fail "compose_file_missing=$COMPOSE_FILE"
+fi
+
+if [ -f "$ENV_FILE" ]; then
+  ok "env_file_present=$ENV_FILE"
+else
+  fail "env_file_missing=$ENV_FILE"
+fi
+
+if [[ "$HERMES_IMAGE" == *":latest" ]]; then
+  fail "hermes_image_is_floating_latest"
+else
+  ok "hermes_image_pinned=$HERMES_IMAGE"
+fi
+
+if curl -fsS "http://127.0.0.1:${GATEWAY_PORT}/health" >/tmp/hermes-vps-health.json 2>/dev/null; then
+  ok "gateway_health=$(cat /tmp/hermes-vps-health.json)"
+else
+  fail "gateway_health_unreachable"
+fi
+
+bad_ports="$(ss -ltn | awk -v gp=":${GATEWAY_PORT}" -v dp=":${DASHBOARD_PORT}" -v dash="$DASHBOARD_ENABLED" '($4 ~ gp "$" || (dash == "true" && $4 ~ dp "$")) && $4 !~ /^127[.]0[.]0[.]1:/ { print $4 }')"
+if [ -z "$bad_ports" ]; then
+  ok "hermes_ports_loopback_only"
+else
+  fail "hermes_ports_exposed=$bad_ports"
+fi
+
+if docker compose -f "$COMPOSE_FILE" ps --services --filter status=running 2>/dev/null | grep -qx hermes; then
+  ok "hermes_container_running"
+else
+  fail "hermes_container_not_running"
+fi
+
+if [ "$INSTALL_FIRECRAWL" = "true" ]; then
+  if [ -f "$FIRECRAWL_COMPOSE_FILE" ]; then
+    ok "firecrawl_compose_file_present=$FIRECRAWL_COMPOSE_FILE"
+  else
+    fail "firecrawl_compose_file_missing=$FIRECRAWL_COMPOSE_FILE"
+  fi
+
+  if [ -f "$FIRECRAWL_ENV_FILE" ]; then
+    ok "firecrawl_env_file_present=$FIRECRAWL_ENV_FILE"
+  else
+    fail "firecrawl_env_file_missing=$FIRECRAWL_ENV_FILE"
+  fi
+
+  if [ "$FIRECRAWL_ENABLE_SERVICE" = "true" ]; then
+    if curl -fsS "http://127.0.0.1:${FIRECRAWL_API_PORT}" >/tmp/hermes-vps-firecrawl-root.txt 2>/dev/null; then
+      ok "firecrawl_api_reachable"
+    else
+      fail "firecrawl_api_unreachable"
+    fi
+
+    bad_firecrawl_ports="$(ss -ltn | awk -v fp=":${FIRECRAWL_API_PORT}" '$4 ~ fp "$" && $4 !~ /^127[.]0[.]0[.]1:/ { print $4 }')"
+    if [ -z "$bad_firecrawl_ports" ]; then
+      ok "firecrawl_port_loopback_only"
+    else
+      fail "firecrawl_port_exposed=$bad_firecrawl_ports"
+    fi
+
+    for service in api playwright-service redis rabbitmq nuq-postgres; do
+      if docker compose --env-file "$FIRECRAWL_ENV_FILE" -f "$FIRECRAWL_COMPOSE_FILE" ps --services --filter status=running 2>/dev/null | grep -qx "$service"; then
+        ok "firecrawl_${service}_running"
+      else
+        fail "firecrawl_${service}_not_running"
+      fi
+    done
+
+    firecrawl_api_container="$(docker compose --env-file "$FIRECRAWL_ENV_FILE" -f "$FIRECRAWL_COMPOSE_FILE" ps -q api 2>/dev/null || true)"
+    if [ -n "$firecrawl_api_container" ] && docker inspect "$firecrawl_api_container" >/tmp/hermes-vps-firecrawl-api-inspect.json 2>/dev/null; then
+      if jq -e --arg network "$FIRECRAWL_HERMES_NETWORK" '.[0].NetworkSettings.Networks[$network] != null' /tmp/hermes-vps-firecrawl-api-inspect.json >/dev/null 2>&1; then
+        ok "firecrawl_api_on_hermes_network=$FIRECRAWL_HERMES_NETWORK"
+        if jq -e --arg network "$FIRECRAWL_HERMES_NETWORK" '.[0].NetworkSettings.Networks[$network].Aliases // [] | index("firecrawl")' /tmp/hermes-vps-firecrawl-api-inspect.json >/dev/null 2>&1; then
+          ok "firecrawl_api_alias=firecrawl"
+        else
+          fail "firecrawl_api_alias_missing=firecrawl network=$FIRECRAWL_HERMES_NETWORK"
+        fi
+      else
+        fail "firecrawl_api_not_on_hermes_network=$FIRECRAWL_HERMES_NETWORK"
+      fi
+    else
+      fail "firecrawl_api_container_inspect_failed"
+    fi
+  else
+    warn "firecrawl_service_disabled"
+  fi
+fi
+
+if [ "$REQUIRE_TELEGRAM" = "true" ]; then
+  if has_env_value TELEGRAM_BOT_TOKEN; then
+    ok "telegram_bot_token_set"
+  else
+    fail "telegram_bot_token_missing"
+  fi
+fi
+
+if [ "$REQUIRE_ALLOWED_USERS" = "true" ]; then
+  if has_env_value TELEGRAM_ALLOWED_USERS || has_env_value GATEWAY_ALLOWED_USERS; then
+    ok "gateway_allowed_users_set"
+  else
+    fail "gateway_allowed_users_missing"
+  fi
+fi
+
+if has_env_value API_SERVER_KEY; then
+  ok "api_server_key_set"
+else
+  fail "api_server_key_missing"
+fi
+
+if [ -d "$HERMES_DATA_DIR" ]; then
+  mode="$(stat -c '%a' "$HERMES_DATA_DIR" 2>/dev/null || true)"
+  owner="$(stat -c '%u:%g' "$HERMES_DATA_DIR" 2>/dev/null || true)"
+  if [ "$owner" = "{{ hermes_uid }}:{{ hermes_gid }}" ]; then
+    ok "hermes_data_owner=$owner"
+  else
+    fail "hermes_data_owner_expected={{ hermes_uid }}:{{ hermes_gid }} actual=${owner:-missing}"
+  fi
+  [ "$mode" = "700" ] && ok "hermes_data_mode=700" || warn "hermes_data_mode=$mode"
+else
+  fail "hermes_data_dir_missing=$HERMES_DATA_DIR"
+fi
+
+if [ -e "$BACKUP_DIR/latest.tar.gz" ]; then
+  latest_age="$(( ($(date +%s) - $(stat -c %Y "$BACKUP_DIR/latest.tar.gz")) / 3600 ))"
+  if [ "$latest_age" -le 36 ]; then
+    ok "backup_latest_age_hours=$latest_age"
+  else
+    fail "backup_latest_too_old_hours=$latest_age"
+  fi
+else
+  fail "backup_latest_missing"
+fi
+
+root_use="$(df -P / | awk 'NR==2 { gsub("%","",$5); print $5 }')"
+if [ "${root_use:-100}" -lt 85 ]; then
+  ok "disk_root_used_percent=$root_use"
+else
+  fail "disk_root_used_percent=$root_use"
+fi
+
+if [ -f /etc/docker/daemon.json ] && jq -e '."log-driver" == "json-file" and ."log-opts"."max-size" and ."log-opts"."max-file"' /etc/docker/daemon.json >/dev/null 2>&1; then
+  ok "docker_log_limits_configured"
+else
+  fail "docker_log_limits_missing"
+fi
+
+if systemctl is-enabled --quiet hermes-vps-backup.timer; then
+  ok "backup_timer_enabled"
+else
+  fail "backup_timer_not_enabled"
+fi
+
+if systemctl is-enabled --quiet hermes-docker-cleanup.timer; then
+  ok "docker_cleanup_timer_enabled"
+else
+  fail "docker_cleanup_timer_not_enabled"
+fi
+
+if systemctl is-enabled --quiet hermes-vps-release-check.timer; then
+  ok "release_check_timer_enabled"
+else
+  fail "release_check_timer_not_enabled"
+fi
+
+if systemctl is-enabled --quiet hermes-vps-healthcheck.timer; then
+  ok "healthcheck_timer_enabled"
+else
+  fail "healthcheck_timer_not_enabled"
+fi
+
+if [ "$failures" -eq 0 ]; then
+  ok "status=healthy"
+else
+  fail "status=unhealthy failures=$failures"
+fi
+
+exit "$failures"

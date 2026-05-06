@@ -1,0 +1,30 @@
+services:
+  hermes:
+    image: "{{ hermes_image }}"
+    container_name: "{{ hermes_container_name }}"
+    restart: unless-stopped
+    command: gateway run
+    ports:
+      - "{{ hermes_gateway_bind_address }}:{{ hermes_gateway_port }}:8642"
+{% if hermes_dashboard_enabled | bool %}
+      - "{{ hermes_dashboard_bind_address }}:{{ hermes_dashboard_port }}:9119"
+{% endif %}
+    volumes:
+      - "{{ hermes_data_dir }}:/opt/data"
+    env_file:
+      - "{{ hermes_env_file }}"
+    environment:
+      HERMES_UID: "{{ hermes_uid }}"
+      HERMES_GID: "{{ hermes_gid }}"
+{% if hermes_dashboard_enabled | bool %}
+      HERMES_DASHBOARD: "1"
+      HERMES_DASHBOARD_HOST: "0.0.0.0"
+      HERMES_DASHBOARD_PORT: "9119"
+{% endif %}
+    mem_limit: "{{ hermes_memory_limit }}"
+    cpus: "{{ hermes_cpus }}"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"

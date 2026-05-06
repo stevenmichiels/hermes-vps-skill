@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+
+BACKUP_DIR="{{ hermes_backup_dir }}"
+RETENTION_DAYS="{{ hermes_backup_retention_days }}"
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+ARCHIVE="${BACKUP_DIR}/hermes-vps-${STAMP}.tar.gz"
+TMP_ARCHIVE="${ARCHIVE}.tmp"
+
+mkdir -p "$BACKUP_DIR"
+chmod 0700 "$BACKUP_DIR"
+
+backup_paths=(
+  etc/hermes
+  var/lib/hermes
+)
+
+if [ -d /etc/firecrawl ]; then
+  backup_paths+=(etc/firecrawl)
+fi
+
+cd /
+tar \
+  --ignore-failed-read \
+  --warning=no-file-changed \
+  -czf "$TMP_ARCHIVE" \
+  "${backup_paths[@]}"
+
+chmod 0600 "$TMP_ARCHIVE"
+mv "$TMP_ARCHIVE" "$ARCHIVE"
+ln -sfn "$(basename "$ARCHIVE")" "${BACKUP_DIR}/latest.tar.gz"
+
+find "$BACKUP_DIR" -maxdepth 1 -type f -name 'hermes-vps-*.tar.gz' -mtime +"$RETENTION_DAYS" -delete
+
+printf 'backup_created=%s\n' "$ARCHIVE"

@@ -1,0 +1,8 @@
+[Unit]
+Description=Check for newer stable Hermes Agent release
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/hermes-vps-release-check

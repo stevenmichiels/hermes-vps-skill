@@ -1,0 +1,26 @@
+# Copy to vars/local.yml and keep that file out of git.
+# This file must contain only non-secret deployment identity/config values.
+
+admin_user: "<admin_user>"
+admin_authorized_keys:
+  - "ssh-ed25519 <public-key> <label>"
+
+# First public bootstrap must use your current public IP /32.
+# Leave empty only after Tailscale SSH is proven and disable_root_login=true.
+bootstrap_public_ssh_cidr: ""
+tailscale_ssh_source_cidr: "100.64.0.0/10"
+
+# Hermes service starts only after /var/lib/hermes/.env is configured.
+hermes_enable_service: false
+hermes_require_telegram: true
+hermes_require_allowed_users: true
+
+# Optional dashboard; keep loopback-bound and use SSH tunnel/Tailscale.
+hermes_dashboard_enabled: false
+
+# Source-controlled Hermes runtime skills. Do not put secrets in this tree.
+hermes_runtime_skills_enabled: true
+
+# Optional private Firecrawl stack; keep loopback-bound.
+install_firecrawl: false
+firecrawl_enable_service: false

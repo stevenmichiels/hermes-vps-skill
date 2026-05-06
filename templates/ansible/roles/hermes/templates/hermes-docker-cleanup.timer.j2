@@ -1,0 +1,9 @@
+[Unit]
+Description=Run Hermes Docker cleanup
+
+[Timer]
+OnCalendar={{ hermes_docker_cleanup_on_calendar }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

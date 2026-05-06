@@ -1,0 +1,219 @@
+- name: Create Hermes group
+  group:
+    name: "{{ hermes_group }}"
+    gid: "{{ hermes_gid }}"
+    state: present
+
+- name: Create Hermes user
+  user:
+    name: "{{ hermes_user }}"
+    uid: "{{ hermes_uid }}"
+    group: "{{ hermes_group }}"
+    shell: /usr/sbin/nologin
+    home: "{{ hermes_data_dir }}"
+    create_home: false
+    system: true
+    state: present
+
+- name: Create Hermes directories
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - path: "{{ hermes_dir }}"
+      owner: root
+      group: root
+      mode: "0755"
+    - path: "{{ hermes_env_dir }}"
+      owner: root
+      group: root
+      mode: "0700"
+    - path: "{{ hermes_data_dir }}"
+      owner: "{{ hermes_uid }}"
+      group: "{{ hermes_gid }}"
+      mode: "0700"
+    - path: "{{ hermes_backup_dir }}"
+      owner: root
+      group: root
+      mode: "0700"
+    - path: "{{ hermes_monitor_state_dir }}"
+      owner: root
+      group: root
+      mode: "0700"
+
+- name: Install initial Hermes env file if missing
+  template:
+    src: env.j2
+    dest: "{{ hermes_env_file }}"
+    owner: "{{ hermes_uid }}"
+    group: "{{ hermes_gid }}"
+    mode: "0600"
+    force: false
+
+- name: Install Hermes Docker Compose file
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ hermes_compose_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Pull Hermes image when requested
+  command: "docker compose -f {{ hermes_compose_file }} pull"
+  when: hermes_compose_pull | bool
+
+- name: Check for source-controlled Hermes runtime skills
+  stat:
+    path: "{{ hermes_runtime_skills_src_dir | default(playbook_dir ~ '/../hermes-skills') }}"
+  register: hermes_runtime_skills_src
+  delegate_to: localhost
+  become: false
+  when: hermes_runtime_skills_enabled | default(true) | bool
+
+- name: Create Hermes runtime skills directory
+  file:
+    path: "{{ hermes_runtime_skills_dir | default(hermes_data_dir ~ '/skills') }}"
+    state: directory
+    owner: "{{ hermes_uid }}"
+    group: "{{ hermes_gid }}"
+    mode: "0755"
+  when:
+    - hermes_runtime_skills_enabled | default(true) | bool
+    - hermes_runtime_skills_src.stat.isdir | default(false)
+
+- name: Deploy source-controlled Hermes runtime skills
+  copy:
+    src: "{{ hermes_runtime_skills_src_dir | default(playbook_dir ~ '/../hermes-skills') }}/"
+    dest: "{{ hermes_runtime_skills_dir | default(hermes_data_dir ~ '/skills') }}/"
+    owner: "{{ hermes_uid }}"
+    group: "{{ hermes_gid }}"
+    mode: "0644"
+    directory_mode: "0755"
+  when:
+    - hermes_runtime_skills_enabled | default(true) | bool
+    - hermes_runtime_skills_src.stat.isdir | default(false)
+
+- name: Check Hermes env readiness
+  shell: |
+    set -eu
+    env_file="{{ hermes_env_file }}"
+    [ -f "$env_file" ] || exit 10
+
+    has_value() {
+      key="$1"
+      awk -F= -v key="$key" '
+        $1 == key {
+          value = substr($0, length(key) + 2)
+          gsub(/^["'\'']|["'\'']$/, "", value)
+          if (value != "" && value != "placeholder" && value != "__SET_ME__") found = 1
+        }
+        END { exit(found ? 0 : 1) }
+      ' "$env_file"
+    }
+
+    missing=0
+    if [ "{{ (hermes_require_telegram | bool) | ternary('true', 'false') }}" = "true" ] && ! has_value TELEGRAM_BOT_TOKEN; then
+      missing=1
+    fi
+    if [ "{{ (hermes_require_allowed_users | bool) | ternary('true', 'false') }}" = "true" ] && ! has_value TELEGRAM_ALLOWED_USERS && ! has_value GATEWAY_ALLOWED_USERS; then
+      missing=1
+    fi
+    if ! has_value API_SERVER_KEY; then
+      missing=1
+    fi
+    exit "$missing"
+  register: hermes_env_readiness
+  changed_when: false
+  failed_when: false
+  no_log: true
+  when: hermes_enable_service | bool
+
+- name: Refuse to start Hermes while required env values are missing
+  fail:
+    msg: >
+      Hermes env is not ready. Configure {{ hermes_env_file }} or run
+      `sudo docker compose -f {{ hermes_compose_file }} run --rm hermes setup`.
+      Required by default: TELEGRAM_BOT_TOKEN, TELEGRAM_ALLOWED_USERS or GATEWAY_ALLOWED_USERS,
+      and API_SERVER_KEY.
+  when:
+    - hermes_enable_service | bool
+    - hermes_env_readiness.rc != 0
+
+- name: Start Hermes gateway
+  command: "docker compose -f {{ hermes_compose_file }} up -d"
+  when: hermes_enable_service | bool
+
+- name: Stop Hermes gateway when disabled
+  command: "docker compose -f {{ hermes_compose_file }} down"
+  register: hermes_compose_down
+  changed_when: "'Removed' in hermes_compose_down.stdout or 'Stopping' in hermes_compose_down.stdout"
+  failed_when: false
+  when: not (hermes_enable_service | bool)
+
+- name: Install Hermes VPS operator scripts
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - src: hermes-vps.j2
+      dest: /usr/local/bin/hermes-vps
+      mode: "0755"
+    - src: hermes-vps-status.j2
+      dest: /usr/local/sbin/hermes-vps-status
+      mode: "0755"
+    - src: hermes-vps-backup.j2
+      dest: /usr/local/sbin/hermes-vps-backup
+      mode: "0755"
+    - src: hermes-vps-release-check.j2
+      dest: /usr/local/sbin/hermes-vps-release-check
+      mode: "0755"
+    - src: hermes-vps-healthcheck.j2
+      dest: /usr/local/sbin/hermes-vps-healthcheck
+      mode: "0755"
+    - src: hermes-docker-cleanup.j2
+      dest: /usr/local/sbin/hermes-docker-cleanup
+      mode: "0755"
+
+- name: Install Hermes VPS systemd service/timer units
+  template:
+    src: "{{ item }}"
+    dest: "/etc/systemd/system/{{ item | basename | regex_replace('\\.j2$', '') }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - hermes-vps-backup.service.j2
+    - hermes-vps-backup.timer.j2
+    - hermes-docker-cleanup.service.j2
+    - hermes-docker-cleanup.timer.j2
+    - hermes-vps-release-check.service.j2
+    - hermes-vps-release-check.timer.j2
+    - hermes-vps-healthcheck.service.j2
+    - hermes-vps-healthcheck.timer.j2
+  register: hermes_systemd_units
+
+- name: Reload systemd when Hermes units change
+  systemd:
+    daemon_reload: true
+  when: hermes_systemd_units.changed
+
+- name: Manage Hermes VPS timers
+  systemd:
+    name: "{{ item.name }}"
+    enabled: "{{ item.enabled | bool }}"
+    state: "{{ 'started' if (item.enabled | bool) else 'stopped' }}"
+  loop:
+    - name: hermes-vps-backup.timer
+      enabled: "{{ hermes_backup_timer_enabled | bool }}"
+    - name: hermes-docker-cleanup.timer
+      enabled: "{{ hermes_docker_cleanup_timer_enabled | bool }}"
+    - name: hermes-vps-release-check.timer
+      enabled: "{{ hermes_release_check_timer_enabled | bool }}"
+    - name: hermes-vps-healthcheck.timer
+      enabled: "{{ hermes_healthcheck_timer_enabled | bool }}"

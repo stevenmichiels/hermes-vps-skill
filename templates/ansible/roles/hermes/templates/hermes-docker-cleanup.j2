@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+docker container prune -f
+docker image prune -f
+docker builder prune -f --filter until=168h

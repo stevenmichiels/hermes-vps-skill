@@ -1,0 +1,13 @@
+templates/ansible/inventory.ini
+templates/ansible/vars/local.yml
+templates/ansible/ansible-run.log
+templates/infra/terraform.tfvars
+templates/infra/terraform.tfstate
+templates/infra/terraform.tfstate.*
+templates/infra/tfplan*
+templates/infra/.terraform/
+*.pem
+*.key
+id_*
+*.backup.tar.gz
+*.tar.gz

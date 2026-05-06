@@ -1,0 +1,9 @@
+[Unit]
+Description=Run Hermes VPS backup
+
+[Timer]
+OnCalendar={{ hermes_backup_on_calendar }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

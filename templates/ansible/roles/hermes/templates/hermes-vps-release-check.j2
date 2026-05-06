@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CURRENT_IMAGE="{{ hermes_image }}"
+CURRENT_TAG="${CURRENT_IMAGE##*:}"
+
+latest_tag="$(
+  curl -fsSL https://api.github.com/repos/NousResearch/hermes-agent/releases \
+    | jq -r '[.[] | select(.draft == false and .prerelease == false)][0].tag_name'
+)"
+
+if [ -z "$latest_tag" ] || [ "$latest_tag" = "null" ]; then
+  echo "release_check=failed_no_stable_release"
+  exit 1
+fi
+
+if ! curl -fsSL "https://hub.docker.com/v2/repositories/nousresearch/hermes-agent/tags/${latest_tag}" >/dev/null; then
+  echo "release_check=latest_release_has_no_docker_tag latest=$latest_tag"
+  exit 1
+fi
+
+if [ "$CURRENT_TAG" = "$latest_tag" ]; then
+  echo "release_check=up_to_date current=$CURRENT_TAG"
+else
+  echo "release_check=update_available current=$CURRENT_TAG latest=$latest_tag"
+fi

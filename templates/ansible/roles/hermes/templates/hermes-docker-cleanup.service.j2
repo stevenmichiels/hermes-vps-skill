@@ -1,0 +1,6 @@
+[Unit]
+Description=Prune unused Docker artifacts for Hermes VPS
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/hermes-docker-cleanup

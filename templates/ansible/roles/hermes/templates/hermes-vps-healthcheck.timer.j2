@@ -1,0 +1,9 @@
+[Unit]
+Description=Run Hermes VPS healthcheck timer
+
+[Timer]
+OnCalendar={{ hermes_healthcheck_on_calendar }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

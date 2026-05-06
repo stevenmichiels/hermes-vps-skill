@@ -1,0 +1,118 @@
+- hosts: vps
+  become: true
+  vars:
+    admin_user: "admin"
+    admin_authorized_keys: []
+    admin_user_passwordless_sudo: true
+    disable_root_login: false
+
+    tailscale_ssh_source_cidr: "100.64.0.0/10"
+    bootstrap_public_ssh_cidr: ""
+    bootstrap_public_ssh_cidr_cleanup: ""
+
+    allow_http: false
+    allow_https: false
+    enable_fail2ban_sshd: true
+
+    swap_enabled: true
+    swap_file_path: "/swapfile"
+    swap_size_mb: 4096
+    swap_swappiness: 10
+
+    install_claude_code: false
+    refresh_claude_code: false
+    install_codex_cli: false
+    install_hermes: true
+    install_firecrawl: false
+
+    hermes_enable_service: false
+    hermes_require_telegram: true
+    hermes_require_allowed_users: true
+    hermes_user: "hermes"
+    hermes_group: "hermes"
+    hermes_uid: 10000
+    hermes_gid: 10000
+    hermes_dir: "/opt/hermes"
+    hermes_env_dir: "/etc/hermes"
+    hermes_data_dir: "/var/lib/hermes"
+    hermes_env_file: "/var/lib/hermes/.env"
+    hermes_compose_file: "/etc/hermes/docker-compose.yml"
+    hermes_container_name: "hermes"
+    hermes_runtime_skills_enabled: true
+    hermes_runtime_skills_src_dir: "{{ playbook_dir }}/../hermes-skills"
+    hermes_runtime_skills_dir: "/var/lib/hermes/skills"
+    hermes_image: "nousresearch/hermes-agent:v2026.4.30"
+    hermes_compose_pull: false
+    hermes_gateway_bind_address: "127.0.0.1"
+    hermes_gateway_port: 8642
+    hermes_dashboard_enabled: false
+    hermes_dashboard_bind_address: "127.0.0.1"
+    hermes_dashboard_port: 9119
+    hermes_memory_limit: "4g"
+    hermes_cpus: "2.0"
+
+    hermes_backup_dir: "/var/backups/hermes-vps"
+    hermes_backup_retention_days: 14
+    hermes_backup_timer_enabled: true
+    hermes_backup_on_calendar: "daily"
+    hermes_docker_cleanup_timer_enabled: true
+    hermes_docker_cleanup_on_calendar: "weekly"
+    hermes_release_check_timer_enabled: true
+    hermes_release_check_on_calendar: "daily"
+    hermes_healthcheck_timer_enabled: true
+    hermes_healthcheck_on_calendar: "*:0/5"
+    hermes_monitor_state_dir: "/var/lib/hermes-vps-monitor"
+
+    # Optional private Firecrawl stack.
+    firecrawl_enable_service: false
+    firecrawl_env_dir: "/etc/firecrawl"
+    firecrawl_env_file: "/etc/firecrawl/firecrawl.env"
+    firecrawl_dir: "/opt/firecrawl"
+    firecrawl_compose_file: "/opt/firecrawl/docker-compose.yml"
+    firecrawl_api_bind_address: "127.0.0.1"
+    firecrawl_api_port: 3002
+    firecrawl_internal_port: 3002
+    firecrawl_image: "ghcr.io/firecrawl/firecrawl:latest"
+    firecrawl_playwright_image: "ghcr.io/firecrawl/playwright-service:latest"
+    firecrawl_postgres_image: "ghcr.io/firecrawl/nuq-postgres:latest"
+    firecrawl_postgres_user: "firecrawl"
+    firecrawl_postgres_db: "postgres"
+    firecrawl_hermes_network: "hermes_default"
+    firecrawl_auto_generate_secrets: true
+    firecrawl_compose_pull: false
+    firecrawl_num_workers_per_queue: 2
+    firecrawl_crawl_concurrent_requests: 2
+    firecrawl_max_concurrent_jobs: 1
+    firecrawl_browser_pool_size: 1
+    firecrawl_playwright_cpus: "1.0"
+    firecrawl_playwright_mem_limit: "1536m"
+    firecrawl_api_cpus: "2.0"
+    firecrawl_api_mem_limit: "3g"
+    firecrawl_max_cpu: "0.85"
+    firecrawl_max_ram: "0.85"
+    firecrawl_block_media: true
+    firecrawl_logging_level: "INFO"
+
+    auto_reboot: true
+    auto_reboot_time: "03:30"
+  pre_tasks:
+    - name: Check for local Hermes VPS config
+      stat:
+        path: "{{ playbook_dir }}/vars/local.yml"
+      register: hermes_vps_local_config
+      delegate_to: localhost
+      become: false
+      tags: always
+
+    - name: Load local Hermes VPS config
+      include_vars:
+        file: "{{ playbook_dir }}/vars/local.yml"
+      when: hermes_vps_local_config.stat.exists
+      tags: always
+  roles:
+    - base
+    - security
+    - role: hermes
+      when: install_hermes | bool
+    - role: firecrawl
+      when: install_firecrawl | bool

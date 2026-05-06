@@ -1,0 +1,9 @@
+[Unit]
+Description=Run Hermes release check
+
+[Timer]
+OnCalendar={{ hermes_release_check_on_calendar }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target
