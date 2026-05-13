@@ -3,7 +3,11 @@ services:
     image: "{{ hermes_image }}"
     container_name: "{{ hermes_container_name }}"
     restart: unless-stopped
+{% if hermes_url_prefetch_enabled | default(false) | bool %}
+    command: python /opt/data/overrides/hermes_gateway_with_prefetch.py gateway run
+{% else %}
     command: gateway run
+{% endif %}
     ports:
       - "{{ hermes_gateway_bind_address }}:{{ hermes_gateway_port }}:8642"
 {% if hermes_dashboard_enabled | bool %}
@@ -16,6 +20,11 @@ services:
     environment:
       HERMES_UID: "{{ hermes_uid }}"
       HERMES_GID: "{{ hermes_gid }}"
+      HERMES_URL_PREFETCH_ENABLED: "{{ (hermes_url_prefetch_enabled | default(false) | bool) | ternary('1', '0') }}"
+      HERMES_URL_PREFETCH_MAX_URLS: "{{ hermes_url_prefetch_max_urls | default(3) }}"
+      HERMES_URL_PREFETCH_INLINE_CHARS: "{{ hermes_url_prefetch_inline_chars | default(12000) }}"
+      HERMES_URL_PREFETCH_ARTIFACT_DIR: "{{ hermes_url_prefetch_artifact_dir | default('/opt/data/artifacts/url-prefetch') }}"
+      HERMES_URL_PREFETCH_FIRECRAWL_URL: "{{ hermes_url_prefetch_firecrawl_url | default('http://firecrawl:3002/v1/scrape') }}"
 {% if hermes_dashboard_enabled | bool %}
       HERMES_DASHBOARD: "1"
       HERMES_DASHBOARD_HOST: "0.0.0.0"

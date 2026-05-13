@@ -179,13 +179,17 @@
     owner: root
     group: root
     mode: "0755"
-  when: install_claude_code | bool
+  when:
+    - install_claude_code | bool
+    - not ansible_check_mode
 
 - name: Check Claude Code version
   shell: /usr/local/bin/claude --version
   register: claude_version
   changed_when: false
-  when: install_claude_code | bool
+  when:
+    - install_claude_code | bool
+    - not ansible_check_mode
 
 - name: Install Node.js (for Codex CLI)
   apt:
@@ -235,6 +239,16 @@
     shell: /bin/bash
     create_home: true
   when: admin_user is defined and admin_user|length > 0
+
+- name: Create VPS zone directories
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default('root') }}"
+    group: "{{ item.group | default(item.owner | default('root')) }}"
+    mode: "{{ item.mode | default('0755') }}"
+  loop: "{{ vps_zone_dirs | default([]) }}"
+  when: vps_zone_dirs_enabled | default(true) | bool
 
 - name: Create .ssh directory for admin user
   file:

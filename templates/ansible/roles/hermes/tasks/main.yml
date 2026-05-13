@@ -35,6 +35,14 @@
       owner: "{{ hermes_uid }}"
       group: "{{ hermes_gid }}"
       mode: "0700"
+    - path: "{{ hermes_data_dir }}/overrides"
+      owner: "{{ hermes_uid }}"
+      group: "{{ hermes_gid }}"
+      mode: "0755"
+    - path: "{{ hermes_data_dir }}/artifacts"
+      owner: "{{ hermes_uid }}"
+      group: "{{ hermes_gid }}"
+      mode: "0750"
     - path: "{{ hermes_backup_dir }}"
       owner: root
       group: root
@@ -60,6 +68,17 @@
     owner: root
     group: root
     mode: "0600"
+  register: hermes_compose_template
+
+- name: Install Hermes gateway URL prefetch wrapper
+  template:
+    src: hermes_gateway_with_prefetch.py.j2
+    dest: "{{ hermes_data_dir }}/overrides/hermes_gateway_with_prefetch.py"
+    owner: "{{ hermes_uid }}"
+    group: "{{ hermes_gid }}"
+    mode: "0755"
+  register: hermes_gateway_prefetch_wrapper
+  when: hermes_url_prefetch_enabled | default(false) | bool
 
 - name: Pull Hermes image when requested
   command: "docker compose -f {{ hermes_compose_file }} pull"
@@ -142,9 +161,17 @@
     - hermes_enable_service | bool
     - hermes_env_readiness.rc != 0
 
+- name: Recreate Hermes gateway after compose or wrapper changes
+  command: "docker compose -f {{ hermes_compose_file }} up -d --force-recreate"
+  when:
+    - hermes_enable_service | bool
+    - hermes_compose_template.changed or (hermes_gateway_prefetch_wrapper.changed | default(false))
+
 - name: Start Hermes gateway
   command: "docker compose -f {{ hermes_compose_file }} up -d"
-  when: hermes_enable_service | bool
+  when:
+    - hermes_enable_service | bool
+    - not (hermes_compose_template.changed or (hermes_gateway_prefetch_wrapper.changed | default(false)))
 
 - name: Stop Hermes gateway when disabled
   command: "docker compose -f {{ hermes_compose_file }} down"

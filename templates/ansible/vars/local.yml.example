@@ -5,6 +5,11 @@ admin_user: "<admin_user>"
 admin_authorized_keys:
   - "ssh-ed25519 <public-key> <label>"
 
+# Managed parent directories for the VPS zoning model:
+# /srv/apps, /home/<admin_user>/repos, /home/<admin_user>/agent-workspaces,
+# /opt/openclaw, /opt/hermes, and /var/backups.
+vps_zone_dirs_enabled: true
+
 # First public bootstrap must use your current public IP /32.
 # Leave empty only after Tailscale SSH is proven and disable_root_login=true.
 bootstrap_public_ssh_cidr: ""
@@ -20,6 +25,10 @@ hermes_dashboard_enabled: false
 
 # Source-controlled Hermes runtime skills. Do not put secrets in this tree.
 hermes_runtime_skills_enabled: true
+
+# Optional gateway URL prefetch. When enabled, the gateway retrieves public
+# HTTP(S) URLs before the first model call and passes the model artifact paths.
+hermes_url_prefetch_enabled: false
 
 # Optional private Firecrawl stack; keep loopback-bound.
 install_firecrawl: false

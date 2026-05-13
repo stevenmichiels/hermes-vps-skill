@@ -1,6 +1,6 @@
 ---
 name: hermes-vps
-description: Provision and harden a Hetzner VPS with Terraform and Ansible, then deploy Hermes Agent as an always-on messaging gateway with strict SSH/firewall guardrails, secret-safe env management, backups, health checks, and repeatable service lifecycle steps.
+description: Provision and harden a Hetzner VPS with Terraform and Ansible as a private AI-agent workbench for Hermes Agent, optional Firecrawl, Claude Code CLI, Codex CLI, and service agents, with strict SSH/firewall guardrails, secret-safe env management, backups, health checks, and repeatable service lifecycle steps.
 ---
 
 # SKILL: hermes-vps (Hetzner + Terraform + Ansible + Hermes Agent)
@@ -12,6 +12,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - Baseline tools: Docker, Docker Compose v2, jq, gh, ffmpeg, screen, Python 3/pipx
 - Deploy Hermes Agent as a Docker Compose gateway on a non-root data directory
 - Optional: deploy a private Firecrawl self-host stack for crawl/scrape/PDF extraction workflows
+- Support one VPS as an agent workbench for Claude Code CLI, Codex CLI, and service agents while keeping live apps, staging, repos, and agent services in separate zones
 - Provide operator commands for status, backups, release checks, health alerts, and Docker cleanup
 
 ## Source-of-truth rule
@@ -28,7 +29,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
   - verify the matching Docker Hub tag exists, e.g. `nousresearch/hermes-agent:vYYYY.M.DD`
   - update `SKILL.md`, `templates/ansible/site.yml`, and role defaults together
   - deploy with `hermes_compose_pull=true`, then validate health, ports, Telegram auth, and backups
-- Current template default: `nousresearch/hermes-agent:v2026.4.30`.
+- Current template default: `nousresearch/hermes-agent:v2026.5.7`.
 
 ## Core operating workflow
 1) Identify request type first: access, infra change, config change, runtime/service change, or assistant capability change.
@@ -52,6 +53,25 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - Do not commit local inventory, local Ansible vars, Terraform tfvars/state/plans, Ansible logs, backup archives, Hermes `.env`, OAuth profiles, pairing state, or SSH keys.
 - Source-controlled Hermes runtime skill templates live under `templates/hermes-skills/` and are safe to copy because this tree must not contain secrets.
 
+## VPS zoning model
+- A single Hetzner VPS may host Hermes, OpenClaw, Claude Code CLI, Codex CLI, Docker containers, Git checkouts, and websites, but do not run them all as root in one shared directory.
+- Keep live applications, staging, source repos, and long-running agent services as separate zones. Good default paths:
+  - `/srv/apps/production-site` for live app runtime
+  - `/srv/apps/staging-site` for staging/test runtime
+  - `/home/<admin_user>/repos/project` for ordinary Git checkouts where Claude Code CLI, Codex CLI, or an operator edits code
+  - `/home/<admin_user>/agent-workspaces/claude-code` for disposable/agent-specific workspaces
+  - `/home/<admin_user>/agent-workspaces/codex-cli` for Codex CLI scratch work and separate sessions
+  - `/opt/hermes` plus `/var/lib/hermes` for Hermes install and runtime state
+  - `/opt/openclaw` for OpenClaw if co-hosted
+  - `/opt/firecrawl` plus `/etc/firecrawl` for the optional private Firecrawl stack
+  - `/var/backups` for backups
+- The Ansible baseline creates the parent zone directories by default: `/srv/apps`, `/home/<admin_user>/repos`, `/home/<admin_user>/agent-workspaces`, `/opt/openclaw`, `/opt/hermes`, and `/var/backups`. The Firecrawl role manages `/opt/firecrawl` and `/etc/firecrawl` only when Firecrawl is enabled. Create concrete app/repo directories only when the real app or repo name is known.
+- Prefer separate Unix users for persistent services when co-hosting multiple agents: an admin SSH user for operators, and service users such as `hermes`, `openclaw`, `claude-agent`, and `codex-agent` when their permissions or runtime state need isolation.
+- Treat Claude Code CLI and Codex CLI as interactive coding tools by default: run them in SSH/tmux/mosh sessions against Git repos or disposable workspaces, with separate auth/config directories when possible.
+- AI agents must not write directly to `/srv/apps/production-*`, `/var/www`, production `.env` files, or production databases. Use Git, reviewed diffs, CI/deploy scripts, Ansible, or a staging promotion step.
+- Give agent services dev/staging credentials by default. Use production credentials only after an explicit decision, with the narrowest scope possible and no shared `.env` across Hermes, OpenClaw, Claude Code CLI, Codex CLI, and app runtimes.
+- For a multi-agent VPS with Docker builds, browser automation, crawling, or databases, prefer at least 4-8 GB RAM and choose 8 GB when budget allows; enable swap and validate memory pressure before adding another service.
+
 ## Controller machine discipline
 - When work continues from a different controller machine, rediscover local state instead of assuming previous inventory, SSH keys, shell aliases, Terraform env vars, or `known_hosts` entries exist.
 - Prefer `tailscale ssh hermes-vps '<command>'` for read-only operator checks when the controller is already on the tailnet and the VPS has Tailscale SSH enabled.
@@ -71,6 +91,21 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
   - `hermes-status`
 - For operator checks, helpers may wrap Tailscale SSH. For normal Ansible applies, still use deliberate ignored local inventory/vars and the documented validation flow.
 - If a helper fails but `tailscale ssh hermes-vps '<command>'` works, prefer fixing the local helper over changing VPS SSH configuration.
+
+## Termius and SSH clients
+- Termius should use normal SSH over the Tailscale network, not a public SSH exception.
+- Requirements:
+  - Termius device has Tailscale installed and is logged into the same tailnet.
+  - Host is the VPS Tailscale IP or MagicDNS name, e.g. `hermes-vps` when MagicDNS works.
+  - Port is `22`.
+  - User is the non-root admin user from `admin_user`.
+  - Authentication uses the private key matching `admin_authorized_keys`; password login stays disabled.
+- For the current local deployment, the admin user is set in ignored `templates/ansible/vars/local.yml`; do not hard-code that private value into the public-cleaned repo.
+- Validate from a shell before debugging Termius:
+  ```bash
+  ssh <admin_user>@<tailscale-ip-or-hostname> 'hostname && whoami'
+  ```
+- If Termius is on a phone or tablet, install and connect Tailscale on that device first, then import only the needed private SSH key into Termius. Do not copy VPS secrets, Hermes env files, Terraform state, or backups into Termius.
 
 ## macOS controller Ansible setup
 - Prefer Homebrew on macOS when it is already installed:
@@ -106,6 +141,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - Do not change SSH/80/443 public exposure without explicit approval.
 - A fresh rebuild is not complete until Tailscale SSH is proven and public bootstrap SSH is removed from both UFW and the Hetzner firewall.
 - Keep Hermes and Firecrawl service ports loopback-bound unless a public exposure decision is explicit.
+- Do not reopen public SSH for Termius or another SSH client. Put the client device on the Tailscale tailnet and connect to the VPS Tailscale IP/hostname on port 22 as the non-root admin user with the configured SSH key.
 
 ## Hard safety rules
 1) Never leave SSH open to the whole internet. SSH must be restricted to a bootstrap `/32`, then Tailscale-only.
@@ -117,6 +153,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 7) Keep Firecrawl private by default: bind the API to `127.0.0.1` and attach only its API service to the Hermes Docker network.
 8) For existing servers, never apply Terraform if plan shows `hcloud_server` destroy/replace unless rebuild is explicitly intended.
 9) Keep deterministic artifacts as source of truth: Terraform + Ansible templates in this skill.
+10) Keep production apps, staging, repos, and agent workspaces isolated; never let an agent directly mutate production runtime files or share production secrets by default.
 
 ## Credential loading (Hetzner token)
 - Preferred/default path: export `TF_VAR_hcloud_token` from a secure secret source before Terraform commands.
@@ -171,7 +208,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - Keep secret-bearing runtime files, OAuth profiles, pairing state, sessions, and `/var/lib/hermes/.env` out of any skills repo.
 - The Hermes role copies `templates/hermes-skills/` to `/var/lib/hermes/skills/` when `hermes_runtime_skills_enabled=true`; it does not delete unrelated runtime skills.
 - After adding or changing a source-controlled runtime skill, validate discovery in a fresh Hermes session before calling the deployment reproducible.
-- For Hermes CLI session tests of local category skills, preload by category path, e.g. `--skills web/private-firecrawl`; `hermes skills list` may show the display name while direct preload/inspect by display name can be less reliable for local skills.
+- For Hermes CLI session tests of local category skills, preload by category path, e.g. `--skills web/private-firecrawl`; `sudo docker exec hermes /opt/hermes/.venv/bin/hermes skills list` may show the display name while direct preload/inspect by display name can be less reliable for local skills. Do not use `/opt/hermes/hermes` for this check unless its Python environment has been verified.
 
 ## Hermes Firecrawl crawl skill decision
 - A Hermes Firecrawl crawl skill fits Hermes skill semantics: Hermes skills are normal `SKILL.md` files, and existing Hermes skills already reference `web_extract` and Firecrawl-backed PDF/markdown extraction.
@@ -193,12 +230,14 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - `bootstrap_public_ssh_cidr_cleanup` (default: `""`; optional)
 - `allow_http`, `allow_https` (defaults: `false`)
 - `swap_enabled`, `swap_size_mb`, `swap_swappiness`
+- `vps_zone_dirs_enabled` (default: `true`)
+- `vps_zone_dirs` (default parent zones: `/srv/apps`, `/home/<admin_user>/repos`, `/home/<admin_user>/agent-workspaces`, `/opt/openclaw`, `/var/backups`; Hermes role also manages `/opt/hermes`; Firecrawl role manages `/opt/firecrawl` and `/etc/firecrawl` when enabled)
 - `install_hermes` (default: `true`)
 - `install_firecrawl` (default: `false`; optional private Firecrawl stack)
 - `hermes_enable_service` (default: `false`; set `true` only after `/var/lib/hermes/.env` is configured)
 - `hermes_require_telegram` (default: `true`; requires `TELEGRAM_BOT_TOKEN` before service enable)
 - `hermes_require_allowed_users` (default: `true`; requires `TELEGRAM_ALLOWED_USERS` or `GATEWAY_ALLOWED_USERS`)
-- `hermes_image` (default: `nousresearch/hermes-agent:v2026.4.30`)
+- `hermes_image` (default: `nousresearch/hermes-agent:v2026.5.7`)
 - `hermes_gateway_bind_address` (default: `127.0.0.1`)
 - `hermes_gateway_port` (default: `8642`)
 - `hermes_dashboard_enabled` (default: `false`)
@@ -303,7 +342,7 @@ Before Hermes env values are configured and the service is enabled, `hermes-vps 
 - Hermes runtime skills:
   - `sudo test -f /var/lib/hermes/skills/web/private-firecrawl/SKILL.md`
   - `sudo docker exec hermes sh -lc 'test -f /opt/data/skills/web/private-firecrawl/SKILL.md'`
-  - fresh Hermes skill discovery should include `private-firecrawl`
+  - `sudo docker exec hermes /opt/hermes/.venv/bin/hermes skills list | grep -F private-firecrawl`
 - Hermes runtime:
   - `sudo docker compose -f /etc/hermes/docker-compose.yml ps`
   - `curl -fsS http://127.0.0.1:8642/health`
@@ -348,6 +387,20 @@ Before Hermes env values are configured and the service is enabled, `hermes-vps 
 - The API service joins `hermes_default` with alias `firecrawl`; Redis, RabbitMQ, and Postgres remain on the private `firecrawl_backend` network.
 - Env secrets are generated only when missing/placeholder and `firecrawl_auto_generate_secrets=true`.
 - If API restarts with `relation "nuq.queue_*" does not exist`, ensure `POSTGRES_DB=postgres`; if this is a fresh failed init, recreate only Firecrawl volumes with `docker compose --env-file /etc/firecrawl/firecrawl.env -f /opt/firecrawl/docker-compose.yml down -v`, then `up -d`.
+
+## Codex CLI Firecrawl access
+- Keep Firecrawl hosted as its own private service stack under `/opt/firecrawl` and `/etc/firecrawl`; do not move it under `/home/<admin_user>` just so Codex CLI can use it.
+- Codex CLI runs on the VPS host, so it can reach the private Firecrawl API through `http://127.0.0.1:3002` when Firecrawl is enabled.
+- Preferred Codex integration is a local MCP server that points to the private host endpoint:
+  ```bash
+  codex mcp add firecrawl --env FIRECRAWL_API_URL=http://127.0.0.1:3002 -- npx -y firecrawl-mcp
+  ```
+- This adds user-local Codex config in `~/.codex/config.toml`; do not commit it or copy it into the public skill repo as account state.
+- Validate without exposing Firecrawl publicly:
+  - `codex mcp list`
+  - `curl -fsS http://127.0.0.1:3002`
+  - In an interactive Codex session, ask Codex to use the `firecrawl` MCP server to scrape a public test page.
+- For non-interactive `codex exec`, MCP tool approval can cancel the tool call unless the run is interactive or explicitly configured to allow the call. Use bypass only for a controlled smoke test in an empty/safe workspace, never as the default operating mode.
 
 ## Restore
 For recovery from a fresh VPS, read `references/restore.md`.

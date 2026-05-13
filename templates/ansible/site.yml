@@ -22,6 +22,28 @@
     install_claude_code: false
     refresh_claude_code: false
     install_codex_cli: false
+    vps_zone_dirs_enabled: true
+    vps_zone_dirs:
+      - path: "/srv/apps"
+        owner: root
+        group: root
+        mode: "0755"
+      - path: "/home/{{ admin_user }}/repos"
+        owner: "{{ admin_user }}"
+        group: "{{ admin_user }}"
+        mode: "0755"
+      - path: "/home/{{ admin_user }}/agent-workspaces"
+        owner: "{{ admin_user }}"
+        group: "{{ admin_user }}"
+        mode: "0755"
+      - path: "/opt/openclaw"
+        owner: root
+        group: root
+        mode: "0755"
+      - path: "/var/backups"
+        owner: root
+        group: root
+        mode: "0755"
     install_hermes: true
     install_firecrawl: false
 
@@ -41,7 +63,12 @@
     hermes_runtime_skills_enabled: true
     hermes_runtime_skills_src_dir: "{{ playbook_dir }}/../hermes-skills"
     hermes_runtime_skills_dir: "/var/lib/hermes/skills"
-    hermes_image: "nousresearch/hermes-agent:v2026.4.30"
+    hermes_url_prefetch_enabled: false
+    hermes_url_prefetch_max_urls: 3
+    hermes_url_prefetch_inline_chars: 12000
+    hermes_url_prefetch_artifact_dir: "/opt/data/artifacts/url-prefetch"
+    hermes_url_prefetch_firecrawl_url: "http://firecrawl:3002/v1/scrape"
+    hermes_image: "nousresearch/hermes-agent:v2026.5.7"
     hermes_compose_pull: false
     hermes_gateway_bind_address: "127.0.0.1"
     hermes_gateway_port: 8642
