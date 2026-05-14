@@ -445,10 +445,23 @@ Before Hermes env values are configured and the service is enabled, `hermes-vps 
   default to disabling `kernel.apparmor_restrict_unprivileged_userns` unless the
   official profile is unavailable or has been tried and failed.
 - This adds user-local Codex config in `~/.codex/config.toml`; do not commit it or copy it into the public skill repo as account state.
+- For a VPS workbench, keep `~/.codex/config.toml` host-specific and small:
+  use `sandbox_mode = "workspace-write"`, `approval_policy = "on-request"`,
+  `sandbox_workspace_write.network_access = true`, and `writable_roots` limited
+  to `/home/<admin_user>/repos`, `/home/<admin_user>/agent-workspaces`, and
+  `/tmp`. Trust those concrete workbench paths, not the whole home directory.
+- Do not copy a macOS Codex config directly to the VPS; rewrite Homebrew paths,
+  `/Users/...` project paths, local AWS credential paths, and plugin lists for
+  the Linux host.
+- Be cautious with custom `default_permissions` filesystem profiles on the VPS.
+  They can cause `codex sandbox linux` to fail with `error building bubblewrap
+  command: Permission denied (os error 13)` on some CLI versions. If used, smoke
+  test from both repo and agent-workspace directories before relying on them.
 - Validate without exposing Firecrawl publicly:
   - `codex mcp list`
   - `command -v bwrap && bwrap --version`
   - `bwrap --unshare-user --unshare-net --ro-bind / / /bin/true`
+  - `cd /home/<admin_user>/agent-workspaces && codex sandbox linux -- bash -lc 'pwd && echo sandbox_ok'`
   - `curl -fsS http://127.0.0.1:3002`
   - In an interactive Codex session, ask Codex to use the `firecrawl` MCP server to scrape a public test page.
 - For non-interactive `codex exec`, MCP tool approval can cancel the tool call unless the run is interactive or explicitly configured to allow the call. Use bypass only for a controlled smoke test in an empty/safe workspace, never as the default operating mode.
