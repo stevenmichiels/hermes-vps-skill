@@ -138,9 +138,10 @@ services.
   reproducible rollouts.
 - The base role uses upstream remote install scripts for Tailscale and Claude
   CLI. Optional Codex CLI support installs Node/npm packages from the configured
-  OS/npm registries. Review those tasks before use, pin or replace them if your
-  environment requires stricter supply-chain controls, and rerun syntax checks
-  after changes.
+  OS/npm registries plus the distro `bubblewrap` package for Linux sandboxing.
+  Review those tasks before use, pin or replace them if your environment
+  requires stricter supply-chain controls, and rerun syntax checks after
+  changes.
 - Terraform provider versions are locked in `templates/infra/.terraform.lock.hcl`;
   keep lockfile changes reviewable.
 

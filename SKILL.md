@@ -395,9 +395,13 @@ Before Hermes env values are configured and the service is enabled, `hermes-vps 
   ```bash
   codex mcp add firecrawl --env FIRECRAWL_API_URL=http://127.0.0.1:3002 -- npx -y firecrawl-mcp
   ```
+- When `install_codex_cli=true`, the base role installs the distro `bubblewrap`
+  package so Codex CLI can find `bwrap` on Linux instead of falling back to its
+  bundled sandbox helper.
 - This adds user-local Codex config in `~/.codex/config.toml`; do not commit it or copy it into the public skill repo as account state.
 - Validate without exposing Firecrawl publicly:
   - `codex mcp list`
+  - `command -v bwrap && bwrap --version`
   - `curl -fsS http://127.0.0.1:3002`
   - In an interactive Codex session, ask Codex to use the `firecrawl` MCP server to scrape a public test page.
 - For non-interactive `codex exec`, MCP tool approval can cancel the tool call unless the run is interactive or explicitly configured to allow the call. Use bypass only for a controlled smoke test in an empty/safe workspace, never as the default operating mode.

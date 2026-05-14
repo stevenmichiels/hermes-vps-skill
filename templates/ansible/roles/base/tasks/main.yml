@@ -197,6 +197,12 @@
     state: present
   when: install_codex_cli | bool
 
+- name: Install Codex CLI sandbox prerequisites
+  apt:
+    name: bubblewrap
+    state: present
+  when: install_codex_cli | bool
+
 - name: Check npm presence
   command: npm --version
   register: npm_version_check

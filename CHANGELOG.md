@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Install the distro `bubblewrap` package when `install_codex_cli=true` so
+  Codex CLI can find `bwrap` on Linux VPS hosts instead of warning and falling
+  back to its bundled sandbox helper.
+
 ## v0.2.0
 
 v0.2.0 turns the template from a Hermes-only VPS deploy skill into a broader
