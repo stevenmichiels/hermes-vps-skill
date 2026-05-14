@@ -235,7 +235,9 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 ## GitHub CLI on VPS
 - `gh` is installed as baseline tooling, but Hermes does not require GitHub auth for the default Telegram/Firecrawl runtime.
 - Do not authenticate `gh`, create VPS GitHub SSH keys, or add deploy keys unless host-side repo operations are explicitly needed.
-- If repo operations become required, use a host-side admin-user key and device-flow `gh auth login`; keep runtime secrets and `/var/lib/hermes` state out of Git repositories.
+- If repo operations become required, prefer a separate low-privilege GitHub account or repo-scoped deploy keys over the operator's primary GitHub account.
+- Use a host-side admin-user key such as `~/.ssh/id_ed25519_github_hermes_vps` and a dedicated SSH host alias such as `github-hermes-vps`; keep the key out of root, containers, Termius, and Git.
+- Use device-flow `gh auth login` only when GitHub API/CLI access is needed in addition to SSH Git transport; keep runtime secrets and `/var/lib/hermes` state out of Git repositories.
 - Do not expose `/root/.ssh` or mount host SSH keys into the Hermes container without an explicit design.
 
 ## Hermes skill deployment
