@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Document the preferred Termius phone/tablet SSH key flow: create a
+  device-specific Ed25519 key in Termius, add only the public key to
+  `admin_authorized_keys`, then rerun Ansible.
 - Install the distro `bubblewrap` package when `install_codex_cli=true` so
   Codex CLI can find `bwrap` on Linux VPS hosts instead of warning and falling
   back to its bundled sandbox helper.

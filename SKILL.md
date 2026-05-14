@@ -101,11 +101,18 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
   - User is the non-root admin user from `admin_user`.
   - Authentication uses the private key matching `admin_authorized_keys`; password login stays disabled.
 - For the current local deployment, the admin user is set in ignored `templates/ansible/vars/local.yml`; do not hard-code that private value into the public-cleaned repo.
+- Preferred phone/tablet key flow:
+  1. Create a new Ed25519 key inside Termius on the phone/tablet.
+  2. Copy only the public key.
+  3. Add that public key as a separate entry in `admin_authorized_keys` in ignored `templates/ansible/vars/local.yml`.
+  4. Rerun Ansible from the controller.
+  5. Connect Termius to the VPS Tailscale IP/hostname as the non-root admin user on port `22`.
+  This gives the phone/tablet its own revocable key and avoids copying the controller's private key into Termius.
 - Validate from a shell before debugging Termius:
   ```bash
   ssh <admin_user>@<tailscale-ip-or-hostname> 'hostname && whoami'
   ```
-- If Termius is on a phone or tablet, install and connect Tailscale on that device first, then import only the needed private SSH key into Termius. Do not copy VPS secrets, Hermes env files, Terraform state, or backups into Termius.
+- If Termius is on a phone or tablet, install and connect Tailscale on that device first. Do not copy VPS secrets, Hermes env files, Terraform state, or backups into Termius.
 
 ## macOS controller Ansible setup
 - Prefer Homebrew on macOS when it is already installed:

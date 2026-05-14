@@ -337,9 +337,18 @@ Do not open public SSH just for Termius. Use normal SSH over Tailscale:
 - Use the non-root admin user configured in `templates/ansible/vars/local.yml`.
 - Authenticate with the private key matching `admin_authorized_keys`.
 
-Password login stays disabled. If a phone or tablet is used, import only the
-needed SSH private key into Termius and do not copy VPS secrets, runtime env
-files, Terraform state, or backups into the app.
+For a phone or tablet, prefer a device-specific key:
+
+1. Create a new Ed25519 key inside Termius.
+2. Copy only the public key.
+3. Add that public key as a separate `admin_authorized_keys` entry in ignored
+   `templates/ansible/vars/local.yml`.
+4. Rerun Ansible from the controller.
+5. Connect Termius to the VPS Tailscale IP/hostname as the non-root admin user
+   on port `22`.
+
+Password login stays disabled. Do not copy VPS secrets, runtime env files,
+Terraform state, or backups into Termius.
 
 ## Sharing Checklist
 
