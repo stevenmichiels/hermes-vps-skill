@@ -199,9 +199,37 @@
 
 - name: Install Codex CLI sandbox prerequisites
   apt:
-    name: bubblewrap
+    name:
+      - bubblewrap
+      - apparmor-profiles
+      - apparmor-utils
     state: present
   when: install_codex_cli | bool
+
+- name: Check for bwrap AppArmor userns profile
+  stat:
+    path: /usr/share/apparmor/extra-profiles/bwrap-userns-restrict
+  register: bwrap_userns_profile
+  when: install_codex_cli | bool
+
+- name: Install bwrap AppArmor userns profile
+  copy:
+    src: /usr/share/apparmor/extra-profiles/bwrap-userns-restrict
+    dest: /etc/apparmor.d/bwrap-userns-restrict
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+  when:
+    - install_codex_cli | bool
+    - bwrap_userns_profile.stat.exists
+
+- name: Load bwrap AppArmor userns profile
+  command: apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict
+  changed_when: false
+  when:
+    - install_codex_cli | bool
+    - bwrap_userns_profile.stat.exists
 
 - name: Check npm presence
   command: npm --version
