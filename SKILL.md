@@ -108,6 +108,12 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
   4. Rerun Ansible from the controller.
   5. Connect Termius to the VPS Tailscale IP/hostname as the non-root admin user on port `22`.
   This gives the phone/tablet its own revocable key and avoids copying the controller's private key into Termius.
+- After adding a phone/tablet key:
+  - give the key a stable label such as `termius-phone` in `admin_authorized_keys`
+  - record the public-key fingerprint with `ssh-keygen -l -f <(printf '%s\n' '<public-key>')`
+  - verify presence without printing all keys: `grep -F '<public-key-body>' ~/.ssh/authorized_keys >/dev/null && echo present`
+  - expect `authorized_keys` to contain more than one key when both controller and phone/tablet access are enabled
+  - after a successful Termius login, rename the key inside Termius to a clear name such as `hermes-vps-phone`
 - Validate from a shell before debugging Termius:
   ```bash
   ssh <admin_user>@<tailscale-ip-or-hostname> 'hostname && whoami'

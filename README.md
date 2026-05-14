@@ -347,6 +347,18 @@ For a phone or tablet, prefer a device-specific key:
 5. Connect Termius to the VPS Tailscale IP/hostname as the non-root admin user
    on port `22`.
 
+After adding the key, label it clearly, record its public-key fingerprint, and
+verify presence without printing all authorized keys:
+
+```sh
+ssh-keygen -l -f <(printf '%s\n' '<public-key>')
+grep -F '<public-key-body>' ~/.ssh/authorized_keys >/dev/null && echo present
+```
+
+It is normal for `authorized_keys` to contain multiple keys when both controller
+and phone/tablet access are enabled. After a successful login, rename the key in
+Termius to something clear such as `hermes-vps-phone`.
+
 Password login stays disabled. Do not copy VPS secrets, runtime env files,
 Terraform state, or backups into Termius.
 
