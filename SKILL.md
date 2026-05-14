@@ -79,6 +79,22 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - Do not edit `known_hosts` to work around a host-key verification failure unless the operator explicitly approves that cleanup; stale host keys can be expected after a rebuild or IP reuse.
 - If Ansible must run from the new controller, create or restore ignored local files deliberately (`inventory.ini`, `vars/local.yml`, Terraform vars) and validate connectivity before applying.
 
+## Controller SSH key rotation
+- Rotate the controller SSH key when the current private key is lost, has an unknown passphrase, is too awkward for non-interactive Ansible/Codex runs, or should be retired.
+- Keep the final controller key filename stable, e.g. `~/.ssh/id_ed25519_hermes_vps_controller`. If replacing an existing key, park the old private key under a clearly legacy filename first; do not delete it until the new key has been tested.
+- For automation-friendly controllers, an Ed25519 key with an empty passphrase is acceptable when the key stays local, has mode `600`, and VPS SSH remains Tailscale-only. If a passphrase is used on macOS, add it deliberately with `ssh-add --apple-use-keychain <key>` and verify the expected fingerprint appears in `ssh-add -l -E sha256`.
+- Add the new public key to ignored `templates/ansible/vars/local.yml` as a separate `admin_authorized_keys` entry before removing the old controller key entry.
+- If the current controller cannot SSH yet, use an existing trusted path such as Termius over Tailscale, Tailscale SSH, or the provider console to append only the new public key to `~/.ssh/authorized_keys`; do not reopen public SSH to solve key rotation.
+- Validate in this order:
+  1. `ssh-keygen -l -f ~/.ssh/id_ed25519_hermes_vps_controller.pub`
+  2. `ssh <admin_user>@<tailscale-ip-or-hostname> 'hostname && whoami'`
+  3. `ansible -i templates/ansible/inventory.ini vps -m ping`
+  4. remove the legacy controller key from `admin_authorized_keys`
+  5. rerun `ansible-playbook -i templates/ansible/inventory.ini site.yml`
+  6. verify `authorized_keys` labels/fingerprints and run `sudo hermes-vps backup` plus `sudo hermes-vps status`
+- Keep phone/tablet/secondary-controller keys as separate entries with stable labels so one device can be revoked without affecting the others.
+- Do not rename Terraform `ssh_key_names` just because the local controller key file was renamed; those names refer to Hetzner Cloud SSH key resources and should change only after the cloud key is verified or intentionally renamed.
+
 ## Controller SSH helpers
 - SSH helpers are optional controller-local convenience only; do not make the tracked skill depend on machine-specific shell aliases.
 - Keep helpers in the controller user's shell config, not in this repo. A minimal zsh pattern is:
