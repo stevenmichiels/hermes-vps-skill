@@ -94,6 +94,12 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 
 ## Termius and SSH clients
 - Termius should use normal SSH over the Tailscale network, not a public SSH exception.
+- Termius should use OpenSSH on the VPS over the Tailscale IP. If Tailscale SSH
+  is enabled on the VPS with `tailscale up --ssh` or `tailscale set --ssh=true`,
+  Tailscale may intercept port `22` before OpenSSH sees `authorized_keys`,
+  causing Termius to hang on authentication. For Termius access, disable that
+  intercept with `sudo tailscale set --ssh=false` while keeping Tailscale itself
+  connected and UFW restricted to the tailnet.
 - Requirements:
   - Termius device has Tailscale installed and is logged into the same tailnet.
   - Host is the VPS Tailscale IP or MagicDNS name, e.g. `hermes-vps` when MagicDNS works.
@@ -118,6 +124,11 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
   ```bash
   ssh <admin_user>@<tailscale-ip-or-hostname> 'hostname && whoami'
   ```
+- If Termius reaches the VPS but hangs on `Authenticating`, check
+  `journalctl -u tailscaled` on the VPS. Logs like `handling conn:
+  <phone-tailscale-ip>:<port>-><user>@<vps-tailscale-ip>:22` without an OpenSSH
+  login usually mean Tailscale SSH is intercepting the connection. Run
+  `sudo tailscale set --ssh=false`, then retry Termius.
 - If Termius is on a phone or tablet, install and connect Tailscale on that device first. Do not copy VPS secrets, Hermes env files, Terraform state, or backups into Termius.
 
 ## macOS controller Ansible setup

@@ -8,6 +8,9 @@
 - Add Termius key post-add verification guidance: label the key, record its
   fingerprint, verify presence without printing `authorized_keys`, and rename
   the Termius key after a successful login.
+- Document that Termius should use OpenSSH over the Tailscale network, and that
+  Tailscale SSH intercept may need to be disabled with
+  `sudo tailscale set --ssh=false` if Termius hangs on authentication.
 - Install the distro `bubblewrap` package when `install_codex_cli=true` so
   Codex CLI can find `bwrap` on Linux VPS hosts instead of warning and falling
   back to its bundled sandbox helper.

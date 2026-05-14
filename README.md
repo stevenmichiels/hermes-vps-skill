@@ -329,13 +329,25 @@ hermes-vps docker-cleanup
 
 ## Termius Access
 
-Do not open public SSH just for Termius. Use normal SSH over Tailscale:
+Do not open public SSH just for Termius. Use normal OpenSSH over the Tailscale
+network:
 
 - Install and connect Tailscale on the Termius device.
 - Add a Termius host with the VPS Tailscale IP or MagicDNS name.
 - Use port `22`.
 - Use the non-root admin user configured in `templates/ansible/vars/local.yml`.
 - Authenticate with the private key matching `admin_authorized_keys`.
+
+If Tailscale SSH is enabled on the VPS, it may intercept port `22` before
+OpenSSH sees `authorized_keys`, causing Termius to hang on `Authenticating`.
+For Termius, keep Tailscale connected but disable the SSH intercept:
+
+```sh
+sudo tailscale set --ssh=false
+```
+
+UFW and the Hetzner firewall should still keep SSH private to the Tailscale
+network.
 
 For a phone or tablet, prefer a device-specific key:
 
