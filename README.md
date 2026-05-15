@@ -241,7 +241,9 @@ read-only reviewer. The base role installs the `claude-review` Codex skill into
 the operator's `~/.codex/skills` and exposes `codex-claude-review`, which lets
 Codex ask Claude Code to review the current `git diff HEAD` plus untracked
 files, include recent `.codex/plan/*.md` context, and write a Markdown report
-without giving Claude edit tools:
+without giving Claude edit tools. This makes review workflows explicit and
+auditable instead of relying on an agent that both changes and judges the same
+code:
 
 ```sh
 codex-claude-review "Review the current diff as a strict senior engineer."

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+No unreleased changes yet.
+
+## v0.3.2 - 2026-05-15
+
+v0.3.2 tightens the release notes for the dual-agent review workflow.
+
+- Explain why `codex-claude-review` matters: it makes review workflows explicit
+  and auditable instead of relying on an agent that both changes and judges the
+  same code.
+
 ## v0.3.1 - 2026-05-15
 
 v0.3.1 fixes the Claude review workflow installation so Codex CLI on the VPS
@@ -47,7 +57,8 @@ Highlights:
   `uv_version`, and `uv_install_dir` knobs; keep Poetry repo-specific.
 - Add a `codex-claude-review` helper for the controlled dual-agent workflow:
   one agent develops, Claude Code writes a read-only Markdown review, and the
-  reviewer never commits.
+  reviewer never commits. This makes review workflows explicit and auditable
+  instead of relying on an agent that both changes and judges the same code.
 
 Validation:
 
