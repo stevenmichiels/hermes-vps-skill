@@ -26,6 +26,15 @@ Default output is timestamped:
 .codex/reviews/claude-review-YYYYMMDDTHHMMSSZ.md
 ```
 
+If that default location is not writable, for example because a sandbox mounts
+`.codex/reviews` read-only, the helper falls back to:
+
+```bash
+${TMPDIR:-/tmp}/codex-claude-review-YYYYMMDDTHHMMSSZ.md
+```
+
+Set `CLAUDE_REVIEW_FALLBACK_DIR` to choose a different fallback directory.
+
 Use `-o` for a stable path:
 
 ```bash

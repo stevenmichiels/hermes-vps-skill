@@ -14,6 +14,8 @@ Environment:
   CLAUDE_REVIEW_MAX_DIFF_BYTES       Default: 200000
   CLAUDE_REVIEW_INCLUDE_PLAN         Default: 1; include recent .codex/plan/*.md
   CLAUDE_REVIEW_MAX_PLAN_BYTES       Default: 60000
+  CLAUDE_REVIEW_FALLBACK_DIR         Default: ${TMPDIR:-/tmp}; used when the
+                                     default .codex/reviews output is read-only
   CLAUDE_REVIEW_ALLOW_LARGE_DIFF=1   Allow diffs larger than max bytes
   CLAUDE_REVIEW_ALLOW_SENSITIVE_DIFF=1
                                      Allow review of likely secret-bearing paths
@@ -48,6 +50,7 @@ budget="${CLAUDE_REVIEW_MAX_BUDGET_USD:-}"
 max_diff_bytes="${CLAUDE_REVIEW_MAX_DIFF_BYTES:-200000}"
 include_plan="${CLAUDE_REVIEW_INCLUDE_PLAN:-1}"
 max_plan_bytes="${CLAUDE_REVIEW_MAX_PLAN_BYTES:-60000}"
+fallback_dir="${CLAUDE_REVIEW_FALLBACK_DIR:-${TMPDIR:-/tmp}}"
 
 if ! command -v claude >/dev/null 2>&1; then
   echo "Claude Code CLI not found on PATH. Install/authenticate Claude Code first." >&2
@@ -68,8 +71,10 @@ if ! git rev-parse --verify HEAD >/dev/null 2>&1; then
 fi
 
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+output_is_default=0
 if [ -z "$output" ]; then
   output=".codex/reviews/claude-review-${timestamp}.md"
+  output_is_default=1
 fi
 
 case "$output" in
@@ -186,8 +191,6 @@ $(cat "$diff_file")
 \`\`\`
 EOF
 
-mkdir -p "$(dirname "$output")"
-
 claude_args=(
   -p
   --input-format text
@@ -202,21 +205,43 @@ fi
 
 claude "${claude_args[@]}" < "$prompt_file" > "$response_file"
 
-{
-  echo "# Claude Review"
-  echo
-  echo "- Repository: $repo_root"
-  echo "- Generated UTC: $timestamp"
-  echo "- Diff bytes: $diff_bytes"
-  if [ -s "$plan_file" ]; then
-    echo "- Plan context bytes: $(wc -c < "$plan_file" | tr -d ' ')"
+write_report() {
+  local target="$1"
+  local dir
+  dir="$(dirname "$target")"
+  mkdir -p "$dir" 2>/dev/null || return 1
+
+  {
+    echo "# Claude Review"
+    echo
+    echo "- Repository: $repo_root"
+    echo "- Generated UTC: $timestamp"
+    echo "- Diff bytes: $diff_bytes"
+    if [ -s "$plan_file" ]; then
+      echo "- Plan context bytes: $(wc -c < "$plan_file" | tr -d ' ')"
+    fi
+    if [ -n "$budget" ]; then
+      echo "- Claude max budget USD: $budget"
+    fi
+    echo "- Output: $target"
+    echo
+    cat "$response_file"
+  } > "$target"
+}
+
+if ! write_report "$output"; then
+  if [ "$output_is_default" = "1" ]; then
+    fallback_output="${fallback_dir%/}/codex-claude-review-${timestamp}.md"
+    if ! write_report "$fallback_output"; then
+      echo "Could not write Claude review to default output or fallback: $output, $fallback_output" >&2
+      exit 1
+    fi
+    echo "Default review output was not writable; wrote fallback report to $fallback_output" >&2
+    output="$fallback_output"
+  else
+    echo "Could not write Claude review to requested output: $output" >&2
+    exit 1
   fi
-  if [ -n "$budget" ]; then
-    echo "- Claude max budget USD: $budget"
-  fi
-  echo "- Output: $output"
-  echo
-  cat "$response_file"
-} > "$output"
+fi
 
 echo "Claude review written to $output"

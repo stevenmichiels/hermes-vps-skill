@@ -4,6 +4,28 @@
 
 No unreleased changes yet.
 
+## v0.3.4 - 2026-05-15
+
+v0.3.4 makes the Codex-to-Claude review helper more robust in sandboxed
+environments.
+
+- Fall back from the default `.codex/reviews/` output path to
+  `${TMPDIR:-/tmp}/codex-claude-review-*.md` when the default location is not
+  writable.
+- Document `CLAUDE_REVIEW_FALLBACK_DIR` for choosing a different fallback
+  directory.
+
+Validation:
+
+- `bash -n templates/codex-skills/claude-review/scripts/codex-claude-review`
+- `bash templates/codex-skills/claude-review/scripts/codex-claude-review -h`
+- Local fake-Claude smoke test for default output
+- Local fake-Claude smoke test for read-only default output fallback
+- `ansible-playbook -i inventory.ini.example site.yml --syntax-check`
+- `ansible-playbook -i inventory.ini site.yml --tags agent-review`
+- Remote verification of `/usr/local/bin/codex-claude-review -h`
+- `git diff --check`
+
 ## v0.3.3 - 2026-05-15
 
 v0.3.3 adds the reverse dual-agent review workflow: Claude Code can ask Codex
