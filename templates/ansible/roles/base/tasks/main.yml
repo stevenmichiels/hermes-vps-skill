@@ -295,6 +295,15 @@
   changed_when: false
   when: install_codex_cli | bool
 
+- name: Create admin user (optional)
+  user:
+    name: "{{ admin_user }}"
+    groups: "sudo,docker"
+    append: true
+    shell: /bin/bash
+    create_home: true
+  when: admin_user is defined and admin_user|length > 0
+
 - name: Ensure Codex skills directory exists
   file:
     path: "{{ codex_skills_dir | default('/home/' ~ admin_user ~ '/.codex/skills') }}"
@@ -344,14 +353,54 @@
   when: install_claude_review_helper | default(true) | bool
   tags: [agent-review, claude-review]
 
-- name: Create admin user (optional)
-  user:
-    name: "{{ admin_user }}"
-    groups: "sudo,docker"
-    append: true
-    shell: /bin/bash
-    create_home: true
-  when: admin_user is defined and admin_user|length > 0
+- name: Ensure Claude skills directory exists
+  file:
+    path: "{{ claude_skills_dir | default('/home/' ~ admin_user ~ '/.claude/skills') }}"
+    state: directory
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: "0755"
+  when:
+    - install_codex_review_helper | default(true) | bool
+    - admin_user is defined
+    - admin_user | length > 0
+  tags: [agent-review, codex-review]
+
+- name: Install Codex review Claude skill
+  copy:
+    src: "{{ claude_codex_review_skill_src_dir | default(playbook_dir ~ '/../claude-skills/codex-review') }}/"
+    dest: "{{ (claude_skills_dir | default('/home/' ~ admin_user ~ '/.claude/skills')) }}/codex-review/"
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: preserve
+    directory_mode: "0755"
+  when:
+    - install_codex_review_helper | default(true) | bool
+    - admin_user is defined
+    - admin_user | length > 0
+  tags: [agent-review, codex-review]
+
+- name: Ensure Codex review skill helper is executable
+  file:
+    path: "{{ (claude_skills_dir | default('/home/' ~ admin_user ~ '/.claude/skills')) }}/codex-review/scripts/claude-codex-review"
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: "0755"
+  when:
+    - install_codex_review_helper | default(true) | bool
+    - admin_user is defined
+    - admin_user | length > 0
+  tags: [agent-review, codex-review]
+
+- name: Install Claude to Codex review helper command
+  copy:
+    src: "{{ claude_codex_review_skill_src_dir | default(playbook_dir ~ '/../claude-skills/codex-review') }}/scripts/claude-codex-review"
+    dest: "{{ codex_review_helper_path | default('/usr/local/bin/claude-codex-review') }}"
+    owner: root
+    group: root
+    mode: "0755"
+  when: install_codex_review_helper | default(true) | bool
+  tags: [agent-review, codex-review]
 
 - name: Create VPS zone directories
   file:

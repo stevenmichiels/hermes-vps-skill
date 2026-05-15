@@ -1,22 +1,27 @@
-# hermes-vps
+# hermes-vps-skill
 
-Human-facing quick start for the `hermes-vps` skill used by Codex or
-another coding agent.
+Run agentic coding workflows from a hardened VPS instead of your laptop.
 
-This skill provisions and operates a Hermes Agent VPS on Hetzner using
-Terraform and Ansible. It keeps SSH and service ports private by default,
-deploys Hermes Agent in Docker Compose, optionally deploys a private Firecrawl
-stack, creates a separated agent-workbench directory layout, and includes
-operational scripts for status checks, backups, release checks, health alerts,
-and Docker cleanup.
+This skill provisions a private Hetzner workbench for Hermes Agent, Claude
+Code, Codex CLI, Firecrawl, MCP tooling, tmux, and SSH/Tailscale-based remote
+development.
+
+It is built for people who want their AI coding agents to run close to their
+servers, keep working after disconnects, and operate inside a reproducible,
+auditable, private-by-default environment.
+
+Under the hood it uses Terraform, Ansible, Docker Compose, system-wide
+`uv`/`uvx`, separated workbench directories, health checks, backups, release
+checks, Docker cleanup, and optional private Firecrawl deployment.
 
 The base workbench installs `uv` and `uvx` system-wide by default for fast,
 isolated Python tool execution. Poetry is intentionally not a baseline package;
 install it only for repos that carry `poetry.lock` or explicitly require
 `poetry run`.
 
-For agent instructions, use `SKILL.md`. This README is for humans deciding
-whether to use, review, or publish the skill.
+For coding agents, use `SKILL.md`.
+
+For humans reviewing or adapting the setup, start here.
 
 This repository is a sanitized deployment template, not a copy of a live
 production VPS configuration.
@@ -156,6 +161,8 @@ services.
 - Ansible roles for base hardening, UFW/fail2ban, Docker, Hermes Agent,
   optional Firecrawl, backups, health checks, release checks, and timers.
 - Source-controlled Hermes runtime skill templates under `templates/hermes-skills/`.
+- Source-controlled Codex and Claude skill templates under
+  `templates/codex-skills/` and `templates/claude-skills/`.
 - A restore runbook in `references/restore.md`.
 - Release notes in `CHANGELOG.md`.
 - Example config files for local deployment values.
@@ -250,7 +257,18 @@ codex-claude-review "Review the current diff as a strict senior engineer."
 codex-claude-review -o claude-review.md "Check whether this is overengineered."
 ```
 
-The helper never stages or commits. If a review report should be versioned,
+The base role also installs the reverse `codex-review` Claude skill into the
+operator's `~/.claude/skills` and exposes `claude-codex-review`, which lets
+Claude ask Codex CLI for a read-only review through Codex's native
+`codex review` command:
+
+```sh
+claude-codex-review "Review the current diff as a strict senior engineer."
+claude-codex-review --commit HEAD -o codex-review.md
+claude-codex-review --base main "Review this branch against main."
+```
+
+The helpers never stage or commit. If a review report should be versioned,
 inspect it first and commit only the Markdown report separately.
 
 ## Prerequisites

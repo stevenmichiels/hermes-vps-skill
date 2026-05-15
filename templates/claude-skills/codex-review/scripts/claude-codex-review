@@ -1,0 +1,300 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: claude-codex-review [-o output.md] [--uncommitted | --commit SHA | --base BRANCH] [--title TITLE] [review prompt]
+
+Create a read-only Codex CLI review and write it to Markdown. Codex runs through
+its native review command; this helper never stages, commits, or edits files.
+
+Environment:
+  CODEX_REVIEW_CODEX_BIN             Default: codex
+  CODEX_REVIEW_MAX_DIFF_BYTES        Default: 200000
+  CODEX_REVIEW_INCLUDE_PLAN          Default: 1; include recent .codex/plan/*.md
+  CODEX_REVIEW_MAX_PLAN_BYTES        Default: 60000
+  CODEX_REVIEW_ALLOW_LARGE_DIFF=1    Allow diffs larger than max bytes
+  CODEX_REVIEW_ALLOW_SENSITIVE_DIFF=1
+                                      Allow review of likely secret-bearing paths
+EOF
+}
+
+output=""
+mode="uncommitted"
+commit_sha=""
+base_ref=""
+title=""
+prompt_parts=()
+
+set_mode() {
+  local next_mode="$1"
+  if [ "$mode" != "uncommitted" ] && [ "$mode" != "$next_mode" ]; then
+    echo "Choose only one review mode: --uncommitted, --commit, or --base." >&2
+    exit 2
+  fi
+  mode="$next_mode"
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -o|--output)
+      if [ "$#" -lt 2 ]; then
+        echo "Missing argument for $1" >&2
+        exit 2
+      fi
+      output="$2"
+      shift 2
+      ;;
+    --uncommitted)
+      set_mode "uncommitted"
+      shift
+      ;;
+    --commit)
+      if [ "$#" -lt 2 ]; then
+        echo "Missing argument for --commit" >&2
+        exit 2
+      fi
+      set_mode "commit"
+      commit_sha="$2"
+      shift 2
+      ;;
+    --base)
+      if [ "$#" -lt 2 ]; then
+        echo "Missing argument for --base" >&2
+        exit 2
+      fi
+      set_mode "base"
+      base_ref="$2"
+      shift 2
+      ;;
+    --title)
+      if [ "$#" -lt 2 ]; then
+        echo "Missing argument for --title" >&2
+        exit 2
+      fi
+      title="$2"
+      shift 2
+      ;;
+    --)
+      shift
+      while [ "$#" -gt 0 ]; do
+        prompt_parts+=("$1")
+        shift
+      done
+      ;;
+    -*)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+    *)
+      prompt_parts+=("$1")
+      shift
+      ;;
+  esac
+done
+
+if [ "${#prompt_parts[@]}" -gt 0 ]; then
+  task="${prompt_parts[*]}"
+else
+  task="Review the current diff as a strict senior engineer. Focus on correctness bugs, security issues, missing tests, simplification opportunities, and risky assumptions."
+fi
+
+codex_bin="${CODEX_REVIEW_CODEX_BIN:-codex}"
+max_diff_bytes="${CODEX_REVIEW_MAX_DIFF_BYTES:-200000}"
+include_plan="${CODEX_REVIEW_INCLUDE_PLAN:-1}"
+max_plan_bytes="${CODEX_REVIEW_MAX_PLAN_BYTES:-60000}"
+
+if ! command -v "$codex_bin" >/dev/null 2>&1; then
+  echo "Codex CLI not found on PATH. Install/authenticate Codex first." >&2
+  exit 1
+fi
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "Run this from inside a git worktree." >&2
+  exit 1
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+if ! git rev-parse --verify HEAD >/dev/null 2>&1; then
+  echo "This helper requires a repository with at least one commit." >&2
+  exit 1
+fi
+
+timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+if [ -z "$output" ]; then
+  output=".claude/reviews/codex-review-${timestamp}.md"
+fi
+
+case "$output" in
+  /*)
+    echo "Output path must be relative to the repository root: $output" >&2
+    exit 2
+    ;;
+esac
+
+tmpdir="$(mktemp -d)"
+cleanup() {
+  rm -rf "$tmpdir"
+}
+trap cleanup EXIT
+
+diff_file="$tmpdir/current.diff"
+prompt_file="$tmpdir/prompt.txt"
+response_file="$tmpdir/codex-response.md"
+plan_file="$tmpdir/plan-context.md"
+
+review_args=()
+changed_paths=""
+: > "$diff_file"
+
+case "$mode" in
+  uncommitted)
+    tracked_paths="$(git diff --name-only HEAD --)"
+    untracked_paths="$(git ls-files --others --exclude-standard)"
+    changed_paths="$(
+      {
+        printf '%s\n' "$tracked_paths"
+        printf '%s\n' "$untracked_paths"
+      } | sed '/^$/d' | grep -v '^\.claude/reviews/' || true
+    )"
+    git diff --no-ext-diff --text HEAD -- >> "$diff_file"
+    while IFS= read -r path; do
+      [ -z "$path" ] && continue
+      case "$path" in
+        .claude/reviews/*)
+          continue
+          ;;
+      esac
+      if [ -f "$path" ]; then
+        git diff --no-index --text -- /dev/null "$path" >> "$diff_file" || true
+      else
+        printf '\n# Untracked non-regular path skipped: %s\n' "$path" >> "$diff_file"
+      fi
+    done <<EOF
+$untracked_paths
+EOF
+    review_args+=(--uncommitted)
+    ;;
+  commit)
+    if ! git rev-parse --verify "${commit_sha}^{commit}" >/dev/null 2>&1; then
+      echo "Commit not found: $commit_sha" >&2
+      exit 2
+    fi
+    changed_paths="$(git diff-tree --no-commit-id --name-only -r --root "$commit_sha" | sed '/^$/d' || true)"
+    git show --format= --no-ext-diff --text "$commit_sha" > "$diff_file"
+    review_args+=(--commit "$commit_sha")
+    ;;
+  base)
+    if ! git rev-parse --verify "$base_ref" >/dev/null 2>&1; then
+      echo "Base ref not found: $base_ref" >&2
+      exit 2
+    fi
+    changed_paths="$(git diff --name-only "$base_ref"...HEAD -- | sed '/^$/d' || true)"
+    git diff --no-ext-diff --text "$base_ref"...HEAD -- > "$diff_file"
+    review_args+=(--base "$base_ref")
+    ;;
+esac
+
+if [ -z "$changed_paths" ]; then
+  echo "No reviewable changes found for mode: $mode." >&2
+  exit 0
+fi
+
+if printf '%s\n' "$changed_paths" | grep -E '(^|/)(\.env($|\.)|secrets/|config/credentials\.json$|id_rsa|id_ed25519)' >/dev/null; then
+  if [ "${CODEX_REVIEW_ALLOW_SENSITIVE_DIFF:-0}" != "1" ]; then
+    echo "Refusing to send a diff with likely secret-bearing paths to Codex." >&2
+    echo "Set CODEX_REVIEW_ALLOW_SENSITIVE_DIFF=1 only after manual review." >&2
+    exit 1
+  fi
+fi
+
+diff_bytes="$(wc -c < "$diff_file" | tr -d ' ')"
+if [ "$diff_bytes" -gt "$max_diff_bytes" ] && [ "${CODEX_REVIEW_ALLOW_LARGE_DIFF:-0}" != "1" ]; then
+  echo "Diff is ${diff_bytes} bytes, above CODEX_REVIEW_MAX_DIFF_BYTES=${max_diff_bytes}." >&2
+  echo "Split the work or set CODEX_REVIEW_ALLOW_LARGE_DIFF=1 deliberately." >&2
+  exit 1
+fi
+
+: > "$plan_file"
+if [ "$include_plan" = "1" ] && [ -d ".codex/plan" ]; then
+  plan_paths=""
+  if compgen -G ".codex/plan/*.md" >/dev/null; then
+    plan_paths="$(ls -t .codex/plan/*.md 2>/dev/null | head -n 3)"
+  fi
+  if [ -n "$plan_paths" ]; then
+    while IFS= read -r plan_path; do
+      [ -z "$plan_path" ] && continue
+      printf '\n## %s\n\n' "$plan_path" >> "$plan_file"
+      cat "$plan_path" >> "$plan_file"
+      printf '\n' >> "$plan_file"
+    done <<EOF
+$plan_paths
+EOF
+  fi
+fi
+
+plan_bytes="$(wc -c < "$plan_file" | tr -d ' ')"
+if [ "$plan_bytes" -gt "$max_plan_bytes" ]; then
+  head -c "$max_plan_bytes" "$plan_file" > "$tmpdir/plan-context-truncated.md"
+  mv "$tmpdir/plan-context-truncated.md" "$plan_file"
+  {
+    echo
+    echo "[Plan context truncated at CODEX_REVIEW_MAX_PLAN_BYTES=${max_plan_bytes}.]"
+  } >> "$plan_file"
+fi
+
+cat > "$prompt_file" <<EOF
+You are a read-only code reviewer. Do not edit files. Do not ask to run commands.
+
+Write a concise Markdown review. Put findings first, ordered by severity.
+For each finding include the file path, the relevant behavior, risk, and a concrete suggestion.
+If there are no findings, say that clearly and mention remaining test gaps or residual risk.
+
+Reviewer task:
+$task
+
+Review mode: $mode
+Changed paths:
+$changed_paths
+
+Plan context:
+$(if [ -s "$plan_file" ]; then cat "$plan_file"; else echo "No .codex/plan/*.md context found."; fi)
+EOF
+
+if [ -n "$title" ]; then
+  review_args+=(--title "$title")
+fi
+
+mkdir -p "$(dirname "$output")"
+
+NO_COLOR=1 "$codex_bin" review "${review_args[@]}" - < "$prompt_file" > "$response_file"
+
+{
+  echo "# Codex Review"
+  echo
+  echo "- Repository: $repo_root"
+  echo "- Generated UTC: $timestamp"
+  echo "- Review mode: $mode"
+  if [ -n "$commit_sha" ]; then
+    echo "- Commit: $commit_sha"
+  fi
+  if [ -n "$base_ref" ]; then
+    echo "- Base: $base_ref"
+  fi
+  echo "- Diff bytes: $diff_bytes"
+  if [ -s "$plan_file" ]; then
+    echo "- Plan context bytes: $(wc -c < "$plan_file" | tr -d ' ')"
+  fi
+  echo "- Output: $output"
+  echo
+  cat "$response_file"
+} > "$output"
+
+echo "Codex review written to $output"

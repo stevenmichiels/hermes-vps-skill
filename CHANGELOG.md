@@ -4,6 +4,30 @@
 
 No unreleased changes yet.
 
+## v0.3.3 - 2026-05-15
+
+v0.3.3 adds the reverse dual-agent review workflow: Claude Code can ask Codex
+CLI for a read-only Markdown review through Codex's native review command.
+
+- Add a `codex-review` Claude skill template with a bundled
+  `claude-codex-review` helper.
+- Install the reverse helper into the VPS operator's `~/.claude/skills` and
+  expose `claude-codex-review` on the system PATH.
+- Move admin-user creation before user-owned skill installs so fresh VPS
+  applies do not depend on the user already existing.
+- Add a sharper README positioning sentence for the hardened agent-workbench
+  use case.
+
+Validation:
+
+- `bash -n templates/claude-skills/codex-review/scripts/claude-codex-review`
+- `bash templates/claude-skills/codex-review/scripts/claude-codex-review -h`
+- `ansible-playbook -i inventory.ini.example site.yml --syntax-check`
+- `ansible-playbook -i inventory.ini site.yml --tags agent-review`
+- Remote verification of `/home/steven/.claude/skills/codex-review/SKILL.md`
+- Local and remote fake-Codex smoke tests for `claude-codex-review`
+- `git diff --check`
+
 ## v0.3.2 - 2026-05-15
 
 v0.3.2 tightens the release notes for the dual-agent review workflow.
