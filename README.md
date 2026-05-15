@@ -237,7 +237,8 @@ reviewed diffs, CI/deploy scripts, Ansible, or a staging promotion step for
 live changes.
 
 For second opinions, keep one agent as the implementer and the other as a
-read-only reviewer. The base role installs `codex-claude-review`, which lets
+read-only reviewer. The base role installs the `claude-review` Codex skill into
+the operator's `~/.codex/skills` and exposes `codex-claude-review`, which lets
 Codex ask Claude Code to review the current `git diff HEAD` plus untracked
 files, include recent `.codex/plan/*.md` context, and write a Markdown report
 without giving Claude edit tools:

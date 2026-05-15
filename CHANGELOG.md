@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+## v0.3.1 - 2026-05-15
+
+v0.3.1 fixes the Claude review workflow installation so Codex CLI on the VPS
+can discover the `claude-review` skill, not just call the helper command.
+
+- Install the `claude-review` Codex skill into the VPS operator's
+  `~/.codex/skills` instead of only installing the `codex-claude-review`
+  helper command.
+
+Validation:
+
+- `bash -n templates/codex-skills/claude-review/scripts/codex-claude-review`
+- `bash templates/codex-skills/claude-review/scripts/codex-claude-review -h`
+- `ansible-playbook -i inventory.ini.example site.yml --syntax-check`
+- Skill validation for `templates/codex-skills/claude-review`
+- `ansible-playbook -i inventory.ini site.yml --tags agent-review`
+- Remote verification of `/home/steven/.codex/skills/claude-review/SKILL.md`
+- `git diff --check`
+
 ## v0.3.0 - 2026-05-15
 
 v0.3.0 adds practical agent-workbench tooling on top of the v0.2.0 VPS model:

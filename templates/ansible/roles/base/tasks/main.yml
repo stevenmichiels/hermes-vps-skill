@@ -295,9 +295,48 @@
   changed_when: false
   when: install_codex_cli | bool
 
-- name: Install Codex to Claude review helper
-  template:
-    src: codex-claude-review.j2
+- name: Ensure Codex skills directory exists
+  file:
+    path: "{{ codex_skills_dir | default('/home/' ~ admin_user ~ '/.codex/skills') }}"
+    state: directory
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: "0755"
+  when:
+    - install_claude_review_helper | default(true) | bool
+    - admin_user is defined
+    - admin_user | length > 0
+  tags: [agent-review, claude-review]
+
+- name: Install Claude review Codex skill
+  copy:
+    src: "{{ codex_claude_review_skill_src_dir | default(playbook_dir ~ '/../codex-skills/claude-review') }}/"
+    dest: "{{ (codex_skills_dir | default('/home/' ~ admin_user ~ '/.codex/skills')) }}/claude-review/"
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: preserve
+    directory_mode: "0755"
+  when:
+    - install_claude_review_helper | default(true) | bool
+    - admin_user is defined
+    - admin_user | length > 0
+  tags: [agent-review, claude-review]
+
+- name: Ensure Claude review skill helper is executable
+  file:
+    path: "{{ (codex_skills_dir | default('/home/' ~ admin_user ~ '/.codex/skills')) }}/claude-review/scripts/codex-claude-review"
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: "0755"
+  when:
+    - install_claude_review_helper | default(true) | bool
+    - admin_user is defined
+    - admin_user | length > 0
+  tags: [agent-review, claude-review]
+
+- name: Install Codex to Claude review helper command
+  copy:
+    src: "{{ codex_claude_review_skill_src_dir | default(playbook_dir ~ '/../codex-skills/claude-review') }}/scripts/codex-claude-review"
     dest: "{{ claude_review_helper_path | default('/usr/local/bin/codex-claude-review') }}"
     owner: root
     group: root

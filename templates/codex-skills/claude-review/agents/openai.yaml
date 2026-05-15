@@ -1,0 +1,4 @@
+interface:
+  display_name: "Claude Review"
+  short_description: "Ask Claude Code for read-only Markdown reviews of Codex diffs."
+  default_prompt: "Review the current git diff with Claude Code and write a Markdown report."

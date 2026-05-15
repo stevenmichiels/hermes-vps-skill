@@ -53,6 +53,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - `templates/ansible/site.yml` automatically loads `templates/ansible/vars/local.yml` from the controller when present.
 - Do not commit local inventory, local Ansible vars, Terraform tfvars/state/plans, Ansible logs, backup archives, Hermes `.env`, OAuth profiles, pairing state, or SSH keys.
 - Source-controlled Hermes runtime skill templates live under `templates/hermes-skills/` and are safe to copy because this tree must not contain secrets.
+- Source-controlled Codex skill templates for VPS users live under `templates/codex-skills/` and are safe to copy because this tree must not contain secrets.
 
 ## VPS zoning model
 - A single Hetzner VPS may host Hermes, OpenClaw, Claude Code CLI, Codex CLI, Docker containers, Git checkouts, and websites, but do not run them all as root in one shared directory.
@@ -76,7 +77,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 
 ## Dual-agent review workflow
 - Preferred flow: Codex implements, Claude Code reviews; or Claude Code implements, Codex reviews. Only one agent edits the worktree.
-- The base role installs `codex-claude-review` by default. It asks Claude Code to review the current `git diff HEAD` plus untracked files, includes recent `.codex/plan/*.md` context when present, and writes a Markdown report under `.codex/reviews/` unless `-o` is provided.
+- The base role installs the `claude-review` Codex skill into `codex_skills_dir` and exposes `codex-claude-review` on the system PATH by default. It asks Claude Code to review the current `git diff HEAD` plus untracked files, includes recent `.codex/plan/*.md` context when present, and writes a Markdown report under `.codex/reviews/` unless `-o` is provided.
 - Example:
   ```bash
   codex-claude-review "Review the current diff as a strict senior engineer. Focus on bugs, tests, and simplification."
@@ -304,6 +305,8 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - `uv_install_dir` (default: `/usr/local/bin`)
 - `install_claude_review_helper` (default: `true`; installs `codex-claude-review`)
 - `claude_review_helper_path` (default: `/usr/local/bin/codex-claude-review`)
+- `codex_skills_dir` (default: `/home/<admin_user>/.codex/skills`)
+- `codex_claude_review_skill_src_dir` (default: `templates/codex-skills/claude-review`)
 - `vps_zone_dirs_enabled` (default: `true`)
 - `vps_zone_dirs` (default parent zones: `/srv/apps`, `/home/<admin_user>/repos`, `/home/<admin_user>/agent-workspaces`, `/opt/openclaw`, `/var/backups`; Hermes role also manages `/opt/hermes`; Firecrawl role manages `/opt/firecrawl` and `/etc/firecrawl` when enabled)
 - `install_hermes` (default: `true`)

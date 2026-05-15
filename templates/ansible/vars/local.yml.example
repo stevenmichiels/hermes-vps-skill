@@ -32,6 +32,8 @@ refresh_uv: false
 
 # Optional helper for Codex -> Claude read-only review reports.
 install_claude_review_helper: true
+# Codex skill install path for the operator/admin user.
+codex_skills_dir: "/home/{{ admin_user }}/.codex/skills"
 
 # Optional gateway URL prefetch. When enabled, the gateway retrieves public
 # HTTP(S) URLs before the first model call and passes the model artifact paths.
