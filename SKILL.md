@@ -10,6 +10,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - Terraform: server + Hetzner firewall
 - Ansible: base config + security (UFW + fail2ban + unattended-upgrades)
 - Baseline tools: Docker, Docker Compose v2, jq, gh, ffmpeg, screen, Python 3/pipx
+- Python operator tooling: uv/uvx installed system-wide by default; Poetry remains project-specific compatibility, not a VPS baseline
 - Deploy Hermes Agent as a Docker Compose gateway on a non-root data directory
 - Optional: deploy a private Firecrawl self-host stack for crawl/scrape/PDF extraction workflows
 - Support one VPS as an agent workbench for Claude Code CLI, Codex CLI, and service agents while keeping live apps, staging, repos, and agent services in separate zones
@@ -68,9 +69,27 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - The Ansible baseline creates the parent zone directories by default: `/srv/apps`, `/home/<admin_user>/repos`, `/home/<admin_user>/agent-workspaces`, `/opt/openclaw`, `/opt/hermes`, and `/var/backups`. The Firecrawl role manages `/opt/firecrawl` and `/etc/firecrawl` only when Firecrawl is enabled. Create concrete app/repo directories only when the real app or repo name is known.
 - Prefer separate Unix users for persistent services when co-hosting multiple agents: an admin SSH user for operators, and service users such as `hermes`, `openclaw`, `claude-agent`, and `codex-agent` when their permissions or runtime state need isolation.
 - Treat Claude Code CLI and Codex CLI as interactive coding tools by default: run them in SSH/tmux/mosh sessions against Git repos or disposable workspaces, with separate auth/config directories when possible.
+- Use the dual-agent review pattern when helpful: one agent develops, the other produces a read-only Markdown review. Do not let both agents edit the same worktree at the same time.
 - AI agents must not write directly to `/srv/apps/production-*`, `/var/www`, production `.env` files, or production databases. Use Git, reviewed diffs, CI/deploy scripts, Ansible, or a staging promotion step.
 - Give agent services dev/staging credentials by default. Use production credentials only after an explicit decision, with the narrowest scope possible and no shared `.env` across Hermes, OpenClaw, Claude Code CLI, Codex CLI, and app runtimes.
 - For a multi-agent VPS with Docker builds, browser automation, crawling, or databases, prefer at least 4-8 GB RAM and choose 8 GB when budget allows; enable swap and validate memory pressure before adding another service.
+
+## Dual-agent review workflow
+- Preferred flow: Codex implements, Claude Code reviews; or Claude Code implements, Codex reviews. Only one agent edits the worktree.
+- The base role installs `codex-claude-review` by default. It asks Claude Code to review the current `git diff HEAD` plus untracked files, includes recent `.codex/plan/*.md` context when present, and writes a Markdown report under `.codex/reviews/` unless `-o` is provided.
+- Example:
+  ```bash
+  codex-claude-review "Review the current diff as a strict senior engineer. Focus on bugs, tests, and simplification."
+  ```
+- To choose a stable output path:
+  ```bash
+  codex-claude-review -o claude-review.md "Check whether this implementation is overengineered."
+  ```
+- The helper runs Claude in `--print` mode with `--tools ""`, `--permission-mode plan`, and `--no-session-persistence`. It does not commit, stage, or edit source files.
+- By default it refuses likely secret-bearing paths and diffs larger than `CLAUDE_REVIEW_MAX_DIFF_BYTES` (default `200000`). Override only after manual review with `CLAUDE_REVIEW_ALLOW_SENSITIVE_DIFF=1` or `CLAUDE_REVIEW_ALLOW_LARGE_DIFF=1`.
+- Plan context is included by default from the latest `.codex/plan/*.md` files and capped by `CLAUDE_REVIEW_MAX_PLAN_BYTES` (default `60000`). Set `CLAUDE_REVIEW_INCLUDE_PLAN=0` when the plan is irrelevant or sensitive.
+- Do not let the reviewer commit its own review. If a review report should be versioned, let the primary agent or operator inspect it first, then commit only the Markdown report in a separate commit.
+- `CLAUDE_REVIEW_MAX_BUDGET_USD` is optional. Leave it unset for normal Claude Code subscription usage; set it only when you deliberately want a print-mode spend guard.
 
 ## Controller machine discipline
 - When work continues from a different controller machine, rediscover local state instead of assuming previous inventory, SSH keys, shell aliases, Terraform env vars, or `known_hosts` entries exist.
@@ -232,6 +251,13 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - Do not use `hcloud` to mutate Terraform-managed resources unless the operator explicitly approves a manual/emergency change. After any approved manual change, reconcile the intended state back into Terraform before the next apply.
 - Do not commit `hcloud` contexts, tokens, command output containing account details, Terraform tfvars, plans, or state.
 
+## Python tooling baseline
+- Install `uv` by default on VPS workbench hosts; `uvx` is included with `uv`.
+- The Ansible base role installs pinned `uv_version` into `uv_install_dir` (default: `/usr/local/bin`) with `UV_NO_MODIFY_PATH=1` so operators and agents can call `uv` and `uvx` from the normal system PATH.
+- Use `uvx <tool>` for one-off Python CLI tools and MCP servers, `uv tool install <tool>` for persistent operator tools, and `uv run ...` inside projects that use uv.
+- Keep Poetry out of the baseline. If a checked-out repo has `poetry.lock` or explicitly requires Poetry, install it deliberately for that repo, preferably with `pipx install poetry`, then use `poetry run ...` for that repo only.
+- Bump `uv_version` deliberately; do not float the installer URL to unpinned latest in templates.
+
 ## GitHub CLI on VPS
 - `gh` is installed as baseline tooling, but Hermes does not require GitHub auth for the default Telegram/Firecrawl runtime.
 - Do not authenticate `gh`, create VPS GitHub SSH keys, or add deploy keys unless host-side repo operations are explicitly needed.
@@ -272,6 +298,12 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - `bootstrap_public_ssh_cidr_cleanup` (default: `""`; optional)
 - `allow_http`, `allow_https` (defaults: `false`)
 - `swap_enabled`, `swap_size_mb`, `swap_swappiness`
+- `install_uv` (default: `true`; installs `uv` and `uvx` into `/usr/local/bin`)
+- `refresh_uv` (default: `false`; force rerun of the pinned uv installer)
+- `uv_version` (default: `0.11.14`)
+- `uv_install_dir` (default: `/usr/local/bin`)
+- `install_claude_review_helper` (default: `true`; installs `codex-claude-review`)
+- `claude_review_helper_path` (default: `/usr/local/bin/codex-claude-review`)
 - `vps_zone_dirs_enabled` (default: `true`)
 - `vps_zone_dirs` (default parent zones: `/srv/apps`, `/home/<admin_user>/repos`, `/home/<admin_user>/agent-workspaces`, `/opt/openclaw`, `/var/backups`; Hermes role also manages `/opt/hermes`; Firecrawl role manages `/opt/firecrawl` and `/etc/firecrawl` when enabled)
 - `install_hermes` (default: `true`)
@@ -465,6 +497,20 @@ Before Hermes env values are configured and the service is enabled, `hermes-vps 
   - `curl -fsS http://127.0.0.1:3002`
   - In an interactive Codex session, ask Codex to use the `firecrawl` MCP server to scrape a public test page.
 - For non-interactive `codex exec`, MCP tool approval can cancel the tool call unless the run is interactive or explicitly configured to allow the call. Use bypass only for a controlled smoke test in an empty/safe workspace, never as the default operating mode.
+
+## Codex CLI LangChain docs MCP access
+- Add the official hosted LangChain docs MCP server for LangChain, LangGraph, and LangSmith documentation lookups:
+  ```bash
+  codex mcp add langchain-docs --url https://docs.langchain.com/mcp
+  ```
+- This writes user-local Codex state in `~/.codex/config.toml`; treat it as local account state, not tracked deployment config.
+- If `codex mcp add` is unavailable, the equivalent Codex config entry is:
+  ```toml
+  [mcp_servers.langchain-docs]
+  url = "https://docs.langchain.com/mcp"
+  ```
+- Prefer this official docs MCP for documentation lookups. Do not install third-party LangChain code-search MCP packages unless the operator explicitly wants their login/credit model and has reviewed the package.
+- Validate with `codex mcp list` and an interactive Codex prompt such as: "Use the LangChain docs MCP to check the current LangGraph MCP endpoint guidance."
 
 ## Restore
 For recovery from a fresh VPS, read `references/restore.md`.

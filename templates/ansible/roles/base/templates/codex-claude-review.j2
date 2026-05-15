@@ -1,0 +1,222 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: codex-claude-review [-o output.md] [review prompt]
+
+Create a read-only Claude Code review of the current git diff and write it to
+Markdown. Claude runs in print mode with tools disabled; this helper never
+commits changes.
+
+Environment:
+  CLAUDE_REVIEW_MAX_BUDGET_USD       Optional; passed to Claude only when set
+  CLAUDE_REVIEW_MAX_DIFF_BYTES       Default: 200000
+  CLAUDE_REVIEW_INCLUDE_PLAN         Default: 1; include recent .codex/plan/*.md
+  CLAUDE_REVIEW_MAX_PLAN_BYTES       Default: 60000
+  CLAUDE_REVIEW_ALLOW_LARGE_DIFF=1   Allow diffs larger than max bytes
+  CLAUDE_REVIEW_ALLOW_SENSITIVE_DIFF=1
+                                     Allow review of likely secret-bearing paths
+EOF
+}
+
+output=""
+while getopts ":ho:" opt; do
+  case "$opt" in
+    h)
+      usage
+      exit 0
+      ;;
+    o)
+      output="$OPTARG"
+      ;;
+    :)
+      echo "Missing argument for -$OPTARG" >&2
+      exit 2
+      ;;
+    \?)
+      echo "Unknown option: -$OPTARG" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+task="${*:-Review the current diff as a strict senior engineer. Focus on correctness bugs, security issues, missing tests, simplification opportunities, and risky assumptions.}"
+budget="${CLAUDE_REVIEW_MAX_BUDGET_USD:-}"
+max_diff_bytes="${CLAUDE_REVIEW_MAX_DIFF_BYTES:-200000}"
+include_plan="${CLAUDE_REVIEW_INCLUDE_PLAN:-1}"
+max_plan_bytes="${CLAUDE_REVIEW_MAX_PLAN_BYTES:-60000}"
+
+if ! command -v claude >/dev/null 2>&1; then
+  echo "Claude Code CLI not found on PATH. Install/authenticate Claude Code first." >&2
+  exit 1
+fi
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "Run this from inside a git worktree." >&2
+  exit 1
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+if ! git rev-parse --verify HEAD >/dev/null 2>&1; then
+  echo "This helper requires a repository with at least one commit." >&2
+  exit 1
+fi
+
+timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+if [ -z "$output" ]; then
+  output=".codex/reviews/claude-review-${timestamp}.md"
+fi
+
+case "$output" in
+  /*)
+    echo "Output path must be relative to the repository root: $output" >&2
+    exit 2
+    ;;
+esac
+
+tracked_paths="$(git diff --name-only HEAD --)"
+untracked_paths="$(git ls-files --others --exclude-standard)"
+changed_paths="$(
+  {
+    printf '%s\n' "$tracked_paths"
+    printf '%s\n' "$untracked_paths"
+  } | sed '/^$/d' | grep -v '^\.codex/reviews/' || true
+)"
+if [ -z "$changed_paths" ]; then
+  echo "No git diff found against HEAD." >&2
+  exit 0
+fi
+
+if printf '%s\n' "$changed_paths" | grep -E '(^|/)(\.env($|\.)|secrets/|config/credentials\.json$|id_rsa|id_ed25519)' >/dev/null; then
+  if [ "${CLAUDE_REVIEW_ALLOW_SENSITIVE_DIFF:-0}" != "1" ]; then
+    echo "Refusing to send a diff with likely secret-bearing paths to Claude." >&2
+    echo "Set CLAUDE_REVIEW_ALLOW_SENSITIVE_DIFF=1 only after manual review." >&2
+    exit 1
+  fi
+fi
+
+tmpdir="$(mktemp -d)"
+cleanup() {
+  rm -rf "$tmpdir"
+}
+trap cleanup EXIT
+
+diff_file="$tmpdir/current.diff"
+prompt_file="$tmpdir/prompt.txt"
+response_file="$tmpdir/claude-response.md"
+plan_file="$tmpdir/plan-context.md"
+
+: > "$diff_file"
+git diff --no-ext-diff --text HEAD -- >> "$diff_file"
+while IFS= read -r path; do
+  [ -z "$path" ] && continue
+  case "$path" in
+    .codex/reviews/*)
+      continue
+      ;;
+  esac
+  if [ -f "$path" ]; then
+    git diff --no-index --text -- /dev/null "$path" >> "$diff_file" || true
+  else
+    printf '\n# Untracked non-regular path skipped: %s\n' "$path" >> "$diff_file"
+  fi
+done <<EOF
+$untracked_paths
+EOF
+diff_bytes="$(wc -c < "$diff_file" | tr -d ' ')"
+
+if [ "$diff_bytes" -gt "$max_diff_bytes" ] && [ "${CLAUDE_REVIEW_ALLOW_LARGE_DIFF:-0}" != "1" ]; then
+  echo "Diff is ${diff_bytes} bytes, above CLAUDE_REVIEW_MAX_DIFF_BYTES=${max_diff_bytes}." >&2
+  echo "Split the work or set CLAUDE_REVIEW_ALLOW_LARGE_DIFF=1 deliberately." >&2
+  exit 1
+fi
+
+: > "$plan_file"
+if [ "$include_plan" = "1" ] && [ -d ".codex/plan" ]; then
+  plan_paths=""
+  if compgen -G ".codex/plan/*.md" >/dev/null; then
+    plan_paths="$(ls -t .codex/plan/*.md 2>/dev/null | head -n 3)"
+  fi
+  if [ -n "$plan_paths" ]; then
+    while IFS= read -r plan_path; do
+      [ -z "$plan_path" ] && continue
+      printf '\n## %s\n\n' "$plan_path" >> "$plan_file"
+      cat "$plan_path" >> "$plan_file"
+      printf '\n' >> "$plan_file"
+    done <<EOF
+$plan_paths
+EOF
+  fi
+fi
+
+plan_bytes="$(wc -c < "$plan_file" | tr -d ' ')"
+if [ "$plan_bytes" -gt "$max_plan_bytes" ]; then
+  head -c "$max_plan_bytes" "$plan_file" > "$tmpdir/plan-context-truncated.md"
+  mv "$tmpdir/plan-context-truncated.md" "$plan_file"
+  {
+    echo
+    echo "[Plan context truncated at CLAUDE_REVIEW_MAX_PLAN_BYTES=${max_plan_bytes}.]"
+  } >> "$plan_file"
+fi
+
+cat > "$prompt_file" <<EOF
+You are a read-only code reviewer. Do not edit files. Do not ask to run commands.
+
+Write a concise Markdown review. Put findings first, ordered by severity.
+For each finding include the file path, the relevant behavior, risk, and a concrete suggestion.
+If there are no findings, say that clearly and mention remaining test gaps or residual risk.
+
+Reviewer task:
+$task
+
+Changed paths:
+$changed_paths
+
+Plan context:
+$(if [ -s "$plan_file" ]; then cat "$plan_file"; else echo "No .codex/plan/*.md context found."; fi)
+
+Current git diff:
+\`\`\`diff
+$(cat "$diff_file")
+\`\`\`
+EOF
+
+mkdir -p "$(dirname "$output")"
+
+claude_args=(
+  -p
+  --input-format text
+  --permission-mode plan
+  --tools ""
+  --no-session-persistence
+)
+
+if [ -n "$budget" ]; then
+  claude_args+=(--max-budget-usd "$budget")
+fi
+
+claude "${claude_args[@]}" < "$prompt_file" > "$response_file"
+
+{
+  echo "# Claude Review"
+  echo
+  echo "- Repository: $repo_root"
+  echo "- Generated UTC: $timestamp"
+  echo "- Diff bytes: $diff_bytes"
+  if [ -s "$plan_file" ]; then
+    echo "- Plan context bytes: $(wc -c < "$plan_file" | tr -d ' ')"
+  fi
+  if [ -n "$budget" ]; then
+    echo "- Claude max budget USD: $budget"
+  fi
+  echo "- Output: $output"
+  echo
+  cat "$response_file"
+} > "$output"
+
+echo "Claude review written to $output"

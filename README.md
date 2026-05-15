@@ -10,6 +10,11 @@ stack, creates a separated agent-workbench directory layout, and includes
 operational scripts for status checks, backups, release checks, health alerts,
 and Docker cleanup.
 
+The base workbench installs `uv` and `uvx` system-wide by default for fast,
+isolated Python tool execution. Poetry is intentionally not a baseline package;
+install it only for repos that carry `poetry.lock` or explicitly require
+`poetry run`.
+
 For agent instructions, use `SKILL.md`. This README is for humans deciding
 whether to use, review, or publish the skill.
 
@@ -206,11 +211,44 @@ state, not a tracked deployment secret. Validate with `codex mcp list` and an
 interactive Codex prompt that uses the `firecrawl` MCP server. Keep Firecrawl
 loopback-bound unless public exposure is explicitly reviewed and accepted.
 
+For LangChain, LangGraph, and LangSmith documentation lookups from Codex CLI,
+add the official hosted docs MCP server as user-local Codex state:
+
+```sh
+codex mcp add langchain-docs --url https://docs.langchain.com/mcp
+```
+
+If the `codex mcp add` subcommand is not available, add the equivalent
+`~/.codex/config.toml` entry:
+
+```toml
+[mcp_servers.langchain-docs]
+url = "https://docs.langchain.com/mcp"
+```
+
+Prefer this official docs MCP for documentation lookups. Do not install
+third-party LangChain code-search MCP packages unless their login and credit
+model has been explicitly accepted.
+
 Claude Code CLI and Codex CLI are treated as interactive coding tools for Git
 repos or disposable workspaces. They should not write directly to production
 runtime directories, production env files, or production databases. Use Git,
 reviewed diffs, CI/deploy scripts, Ansible, or a staging promotion step for
 live changes.
+
+For second opinions, keep one agent as the implementer and the other as a
+read-only reviewer. The base role installs `codex-claude-review`, which lets
+Codex ask Claude Code to review the current `git diff HEAD` plus untracked
+files, include recent `.codex/plan/*.md` context, and write a Markdown report
+without giving Claude edit tools:
+
+```sh
+codex-claude-review "Review the current diff as a strict senior engineer."
+codex-claude-review -o claude-review.md "Check whether this is overengineered."
+```
+
+The helper never stages or commits. If a review report should be versioned,
+inspect it first and commit only the Markdown report separately.
 
 ## Prerequisites
 

@@ -80,6 +80,36 @@
     state: started
     enabled: true
 
+- name: Check uv presence
+  command: "{{ uv_install_dir | default('/usr/local/bin') }}/uv --version"
+  register: uv_presence
+  changed_when: false
+  failed_when: false
+  when: install_uv | default(true) | bool
+  tags: [uv]
+
+- name: Install uv and uvx (official standalone installer)
+  shell: |
+    curl -LsSf "https://astral.sh/uv/{{ uv_version | default('0.11.14') }}/install.sh" | env UV_INSTALL_DIR="{{ uv_install_dir | default('/usr/local/bin') }}" UV_NO_MODIFY_PATH=1 sh
+  when:
+    - install_uv | default(true) | bool
+    - (uv_presence.rc != 0) or (refresh_uv | default(false) | bool)
+  tags: [uv]
+
+- name: Check uv version
+  command: "{{ uv_install_dir | default('/usr/local/bin') }}/uv --version"
+  register: uv_version_check
+  changed_when: false
+  when: install_uv | default(true) | bool
+  tags: [uv]
+
+- name: Check uvx version
+  command: "{{ uv_install_dir | default('/usr/local/bin') }}/uvx --version"
+  register: uvx_version_check
+  changed_when: false
+  when: install_uv | default(true) | bool
+  tags: [uv]
+
 - name: Inspect swapfile
   stat:
     path: "{{ swap_file_path | default('/swapfile') }}"
@@ -264,6 +294,16 @@
   register: codex_version
   changed_when: false
   when: install_codex_cli | bool
+
+- name: Install Codex to Claude review helper
+  template:
+    src: codex-claude-review.j2
+    dest: "{{ claude_review_helper_path | default('/usr/local/bin/codex-claude-review') }}"
+    owner: root
+    group: root
+    mode: "0755"
+  when: install_claude_review_helper | default(true) | bool
+  tags: [agent-review, claude-review]
 
 - name: Create admin user (optional)
   user:

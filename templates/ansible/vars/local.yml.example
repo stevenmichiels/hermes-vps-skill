@@ -26,6 +26,13 @@ hermes_dashboard_enabled: false
 # Source-controlled Hermes runtime skills. Do not put secrets in this tree.
 hermes_runtime_skills_enabled: true
 
+# Python tooling baseline. Installs uv and uvx into /usr/local/bin.
+install_uv: true
+refresh_uv: false
+
+# Optional helper for Codex -> Claude read-only review reports.
+install_claude_review_helper: true
+
 # Optional gateway URL prefetch. When enabled, the gateway retrieves public
 # HTTP(S) URLs before the first model call and passes the model artifact paths.
 hermes_url_prefetch_enabled: false

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.3.0 - 2026-05-15
+
+v0.3.0 adds practical agent-workbench tooling on top of the v0.2.0 VPS model:
+Python tool execution with uv/uvx, a controlled Codex-to-Claude review helper,
+LangChain docs MCP guidance, and clearer operator access notes.
+
+Highlights:
+
 - Document the preferred Termius phone/tablet SSH key flow: create a
   device-specific Ed25519 key in Termius, add only the public key to
   `admin_authorized_keys`, then rerun Ansible.
@@ -14,6 +22,21 @@
 - Install the distro `bubblewrap` package when `install_codex_cli=true` so
   Codex CLI can find `bwrap` on Linux VPS hosts instead of warning and falling
   back to its bundled sandbox helper.
+- Document adding the official LangChain docs MCP server to user-local Codex
+  CLI config on Hermes workbench hosts.
+- Add a pinned `uv`/`uvx` workbench baseline with `install_uv`, `refresh_uv`,
+  `uv_version`, and `uv_install_dir` knobs; keep Poetry repo-specific.
+- Add a `codex-claude-review` helper for the controlled dual-agent workflow:
+  one agent develops, Claude Code writes a read-only Markdown review, and the
+  reviewer never commits.
+
+Validation:
+
+- `bash -n templates/ansible/roles/base/templates/codex-claude-review.j2`
+- `bash templates/ansible/roles/base/templates/codex-claude-review.j2 -h`
+- `ansible-playbook -i inventory.ini.example site.yml --syntax-check`
+- `git diff --check`
+- `git status --short`
 
 ## v0.2.0
 
