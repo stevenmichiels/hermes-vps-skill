@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-No unreleased changes yet.
+- Rename the public repository and README title to `dual-agent-vps`.
 
 ## v0.3.4 - 2026-05-15
 

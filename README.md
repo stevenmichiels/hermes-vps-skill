@@ -1,4 +1,4 @@
-# hermes-vps-skill
+# dual-agent-vps
 
 Run agentic coding workflows from a hardened VPS instead of your laptop.
 
