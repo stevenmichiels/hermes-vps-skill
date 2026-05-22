@@ -2,7 +2,27 @@
 
 ## Unreleased
 
+## v0.3.5 - 2026-05-22
+
+v0.3.5 adds an opt-in NoMachine/XFCE desktop profile while preserving the
+headless, private-by-default VPS posture.
+
+- Add an opt-in NoMachine profile that installs the official NoMachine DEB,
+  disables UPnP/NAT-PMP port mapping and NoMachine firewall autoconfiguration,
+  removes installer-created public UFW rules, requires NX private-key
+  authentication, forces virtual desktops to start XFCE, and allows TCP/UDP
+  `4000` only from the Tailscale CIDR.
+- Make `install_remote_desktop` and `install_nomachine` a paired profile,
+  and remove the previous SSH-desktop package defaults.
+- Document concrete NoMachine connection values, the expected virtual-display
+  prompt, direct Tailscale-only access, and 4 GB minimum / 8 GB preferred
+  resource guidance.
 - Rename the public repository and README title to `dual-agent-vps`.
+
+Validation:
+
+- `ansible-playbook -i inventory.ini.example site.yml --syntax-check`
+- `git diff --check`
 
 ## v0.3.4 - 2026-05-15
 

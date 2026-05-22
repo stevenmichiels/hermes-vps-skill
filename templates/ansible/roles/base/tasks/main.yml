@@ -187,6 +187,130 @@
   args:
     creates: /usr/bin/tailscale
 
+- name: Validate optional remote desktop toggles
+  assert:
+    that:
+      - install_remote_desktop | default(false) | bool
+      - install_nomachine | default(false) | bool
+    fail_msg: "The supported remote desktop profile requires both install_remote_desktop=true and install_nomachine=true."
+  when: (install_remote_desktop | default(false) | bool) or (install_nomachine | default(false) | bool)
+  tags: [remote-desktop, nomachine]
+
+- name: Install optional XFCE desktop baseline
+  apt:
+    name: "{{ remote_desktop_packages | default(['xfce4', 'xfce4-terminal', 'dbus-x11', 'xauth']) }}"
+    state: present
+  when: install_remote_desktop | default(false) | bool
+  tags: [remote-desktop]
+
+- name: Download optional NoMachine package
+  get_url:
+    url: "{{ nomachine_deb_url }}"
+    dest: "/tmp/nomachine_{{ nomachine_version }}_amd64.deb"
+    mode: "0644"
+    checksum: "md5:{{ nomachine_deb_md5 }}"
+  when: install_nomachine | default(false) | bool
+  tags: [nomachine]
+
+- name: Install optional NoMachine package
+  apt:
+    deb: "/tmp/nomachine_{{ nomachine_version }}_amd64.deb"
+    state: present
+  when: install_nomachine | default(false) | bool
+  tags: [nomachine]
+
+- name: Ensure NoMachine key-auth directory exists for admin user
+  file:
+    path: "/home/{{ admin_user }}/.nx/config"
+    state: directory
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: "0700"
+  when:
+    - install_nomachine | default(false) | bool
+    - nomachine_key_auth_only | default(true) | bool
+    - admin_user is defined
+    - admin_user | length > 0
+  tags: [nomachine]
+
+- name: Install NoMachine authorized public keys for admin user
+  copy:
+    dest: "/home/{{ admin_user }}/.nx/config/authorized.crt"
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: "0600"
+    content: "{{ admin_authorized_keys | join('\n') ~ '\n' }}"
+  when:
+    - install_nomachine | default(false) | bool
+    - nomachine_key_auth_only | default(true) | bool
+    - admin_user is defined
+    - admin_user | length > 0
+    - admin_authorized_keys is defined
+    - admin_authorized_keys | length > 0
+  tags: [nomachine]
+
+- name: Disable NoMachine UPnP/NAT-PMP port mapping
+  lineinfile:
+    path: /usr/NX/etc/server.cfg
+    regexp: '^#?EnableUPnP\s+'
+    line: 'EnableUPnP none'
+  register: nomachine_upnp_config
+  when:
+    - install_nomachine | default(false) | bool
+    - nomachine_disable_upnp | default(true) | bool
+  tags: [nomachine]
+
+- name: Disable NoMachine automatic firewall changes
+  lineinfile:
+    path: /usr/NX/etc/server.cfg
+    regexp: '^#?EnableFirewallConfiguration\s+'
+    line: 'EnableFirewallConfiguration 0'
+  register: nomachine_firewall_config
+  when:
+    - install_nomachine | default(false) | bool
+    - nomachine_disable_firewall_autoconfig | default(true) | bool
+  tags: [nomachine]
+
+- name: Force NoMachine virtual desktops to start XFCE
+  lineinfile:
+    path: /usr/NX/etc/node.cfg
+    regexp: '^#?DefaultDesktopCommand\s+'
+    line: 'DefaultDesktopCommand "{{ nomachine_default_desktop_command | default("/etc/X11/Xsession startxfce4") }}"'
+  register: nomachine_desktop_config
+  when: install_nomachine | default(false) | bool
+  tags: [nomachine]
+
+- name: Require NoMachine private-key authentication
+  lineinfile:
+    path: /usr/NX/etc/server.cfg
+    regexp: '^#?AcceptedAuthenticationMethods\s+'
+    line: 'AcceptedAuthenticationMethods NX-private-key'
+  register: nomachine_auth_config
+  when:
+    - install_nomachine | default(false) | bool
+    - nomachine_key_auth_only | default(true) | bool
+  tags: [nomachine]
+
+- name: Restart NoMachine after server config changes
+  command: /etc/NX/nxserver --restart
+  when:
+    - install_nomachine | default(false) | bool
+    - >-
+      (nomachine_upnp_config is defined and nomachine_upnp_config.changed)
+      or
+      (nomachine_firewall_config is defined and nomachine_firewall_config.changed)
+      or
+      (nomachine_desktop_config is defined and nomachine_desktop_config.changed)
+      or
+      (nomachine_auth_config is defined and nomachine_auth_config.changed)
+  tags: [nomachine]
+
+- name: Check NoMachine server status
+  command: /etc/NX/nxserver --status
+  changed_when: false
+  when: install_nomachine | default(false) | bool
+  tags: [nomachine]
+
 - name: Install Claude Code (official installer)
   shell: curl -fsSL https://claude.ai/install.sh | bash
   args:

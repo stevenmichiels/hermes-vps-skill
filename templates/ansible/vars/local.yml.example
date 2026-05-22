@@ -30,6 +30,13 @@ hermes_runtime_skills_enabled: true
 install_uv: true
 refresh_uv: false
 
+# Optional non-headless profile. Installs XFCE plus NoMachine over Tailscale.
+install_remote_desktop: false
+
+# Optional NoMachine profile. Installs NoMachine and allows NX only from
+# Tailscale. Use NX private-key auth with keys from admin_authorized_keys.
+install_nomachine: false
+
 # Optional helper for Codex -> Claude read-only review reports.
 install_claude_review_helper: true
 # Codex skill install path for the operator/admin user.

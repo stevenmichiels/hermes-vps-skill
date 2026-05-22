@@ -13,6 +13,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - Python operator tooling: uv/uvx installed system-wide by default; Poetry remains project-specific compatibility, not a VPS baseline
 - Deploy Hermes Agent as a Docker Compose gateway on a non-root data directory
 - Optional: deploy a private Firecrawl self-host stack for crawl/scrape/PDF extraction workflows
+- Optional: install a lightweight NoMachine/XFCE remote desktop restricted to the Tailscale path
 - Support one VPS as an agent workbench for Claude Code CLI, Codex CLI, and service agents while keeping live apps, staging, repos, and agent services in separate zones
 - Provide operator commands for status, backups, release checks, health alerts, and Docker cleanup
 
@@ -173,6 +174,28 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
   `sudo tailscale set --ssh=false`, then retry Termius.
 - If Termius is on a phone or tablet, install and connect Tailscale on that device first. Do not copy VPS secrets, Hermes env files, Terraform state, or backups into Termius.
 
+## Optional non-headless desktop
+- Keep the default VPS headless. A desktop increases package count, memory use, and exposed local session surface, so install it only for a concrete need.
+- The supported opt-in desktop profile is NoMachine plus XFCE when proprietary free-for-personal-use software is acceptable:
+  - set `install_remote_desktop=true` and `install_nomachine=true`
+  - rerun Ansible after SSH/Tailscale access is stable
+  - NoMachine installs from the official Linux amd64 DEB with MD5 verification
+  - NoMachine UPnP/NAT-PMP port mapping is disabled
+  - NoMachine automatic firewall changes are disabled and installer-created public UFW rules are removed
+  - virtual desktops are forced to start XFCE with `/etc/X11/Xsession startxfce4`
+  - `admin_authorized_keys` are copied to `/home/<admin_user>/.nx/config/authorized.crt`
+  - NX private-key authentication is required by default
+  - UFW allows TCP/UDP `4000` only from `tailscale_ssh_source_cidr`
+  - connect from the NoMachine client with protocol `NX`, port `4000`, username `admin_user`, and the private key matching one of `admin_authorized_keys`
+  - when NoMachine says it cannot detect a display, choose **Yes** to create a virtual display; this is expected on a VPS
+  - do not use NoMachine Network/cloud for this VPS; connect directly to the Tailscale IP or MagicDNS hostname
+- Do not open public GUI ports in UFW or the Hetzner firewall. NoMachine is allowed only on TCP/UDP `4000` from the Tailscale CIDR.
+- If a full desktop is unavoidable, prefer reviewing package impact explicitly instead of replacing the default with `xubuntu-desktop` casually.
+- Resource guidance:
+  - minimum for light desktop use: 2 vCPU / 4 GB RAM
+  - preferred for browsers, IDEs, and agent tools: 4 vCPU / 8 GB RAM or more
+  - validate `free -h`, `swapon --show`, and Docker memory pressure before adding browser-heavy workloads
+
 ## macOS controller Ansible setup
 - Prefer Homebrew on macOS when it is already installed:
   - `zsh -lc 'brew install ansible'`
@@ -207,6 +230,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - Do not change SSH/80/443 public exposure without explicit approval.
 - A fresh rebuild is not complete until Tailscale SSH is proven and public bootstrap SSH is removed from both UFW and the Hetzner firewall.
 - Keep Hermes and Firecrawl service ports loopback-bound unless a public exposure decision is explicit.
+- Keep remote desktop access on Tailscale through NoMachine; do not expose GUI ports publicly.
 - Do not reopen public SSH for Termius or another SSH client. Put the client device on the Tailscale tailnet and connect to the VPS Tailscale IP/hostname on port 22 as the non-root admin user with the configured SSH key.
 
 ## Hard safety rules
@@ -217,9 +241,10 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 5) Never print secrets. Never commit API keys, bot tokens, OAuth files, pairing state, or `/var/lib/hermes/.env`.
 6) Keep Hermes gateway/dashboard private by default: bind published ports to `127.0.0.1` and access via SSH tunnel or Tailscale.
 7) Keep Firecrawl private by default: bind the API to `127.0.0.1` and attach only its API service to the Hermes Docker network.
-8) For existing servers, never apply Terraform if plan shows `hcloud_server` destroy/replace unless rebuild is explicitly intended.
-9) Keep deterministic artifacts as source of truth: Terraform + Ansible templates in this skill.
-10) Keep production apps, staging, repos, and agent workspaces isolated; never let an agent directly mutate production runtime files or share production secrets by default.
+8) Keep optional desktop access private: NoMachine over Tailscale only, no public GUI ports.
+9) For existing servers, never apply Terraform if plan shows `hcloud_server` destroy/replace unless rebuild is explicitly intended.
+10) Keep deterministic artifacts as source of truth: Terraform + Ansible templates in this skill.
+11) Keep production apps, staging, repos, and agent workspaces isolated; never let an agent directly mutate production runtime files or share production secrets by default.
 
 ## Credential loading (Hetzner token)
 - Preferred/default path: export `TF_VAR_hcloud_token` from a secure secret source before Terraform commands.
@@ -309,6 +334,15 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - `refresh_uv` (default: `false`; force rerun of the pinned uv installer)
 - `uv_version` (default: `0.11.14`)
 - `uv_install_dir` (default: `/usr/local/bin`)
+- `install_remote_desktop` (default: `false`; optional XFCE baseline for NoMachine)
+- `remote_desktop_packages` (default: `xfce4`, `xfce4-terminal`, `dbus-x11`, `xauth`)
+- `install_nomachine` (default: `false`; optional NoMachine over Tailscale)
+- `nomachine_version`, `nomachine_deb_url`, `nomachine_deb_md5`
+- `nomachine_port` (default: `4000`)
+- `nomachine_key_auth_only` (default: `true`; requires NX private-key auth)
+- `nomachine_allow_tailscale` (default: `true`; allows TCP/UDP `4000` from Tailscale CIDR)
+- `nomachine_disable_upnp` (default: `true`)
+- `nomachine_disable_firewall_autoconfig` (default: `true`)
 - `install_claude_review_helper` (default: `true`; installs `codex-claude-review`)
 - `claude_review_helper_path` (default: `/usr/local/bin/codex-claude-review`)
 - `codex_skills_dir` (default: `/home/<admin_user>/.codex/skills`)
@@ -406,7 +440,12 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
    - `hermes-vps status`
    - `curl -fsS http://127.0.0.1:8642/health`
    - Telegram `/start` or a direct message from an allowed user
-12) Optional Firecrawl:
+12) Optional remote desktop:
+   - set `install_remote_desktop=true` and `install_nomachine=true`
+   - rerun Ansible only after Tailscale SSH is stable
+   - connect with NoMachine to the Tailscale IP/hostname using protocol `NX`, port `4000`, username `admin_user`, and the matching private key
+   - do not add public firewall rules for VNC, RDP, NoMachine, or X11
+13) Optional Firecrawl:
    - set `install_firecrawl=true` and `firecrawl_enable_service=true`
    - rerun Ansible after Hermes has created the `hermes_default` Docker network
    - validate `curl -fsS http://127.0.0.1:3002`
@@ -441,6 +480,11 @@ Before Hermes env values are configured and the service is enabled, `hermes-vps 
   - `free -h`
   - `sysctl vm.swappiness`
   - `df -h /`
+- Optional remote desktop when enabled:
+  - `dpkg-query -W xfce4 nomachine`
+  - `grep -E '^(DefaultDesktopCommand|AcceptedAuthenticationMethods)' /usr/NX/etc/node.cfg /usr/NX/etc/server.cfg`
+  - connect with NoMachine over the VPS Tailscale IP/hostname on port `4000`
+  - confirm no public GUI ports were added to UFW or the Hetzner firewall
 - Port exposure sanity:
   - `sudo ss -ltnp | grep -E ':22 |:8642 |:9119 |:3002 ' || true`
   - expected: Hermes, dashboard, and Firecrawl ports are loopback-bound; SSH is reachable only through allowed Tailscale/bootstrap sources.

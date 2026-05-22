@@ -77,6 +77,48 @@
     proto: tcp
   when: allow_http | bool
 
+- name: Remove NoMachine public TCP UFW rule
+  ufw:
+    rule: allow
+    port: "{{ nomachine_port | default(4000) | string }}"
+    proto: tcp
+    delete: true
+  when: install_nomachine | default(false) | bool
+  failed_when: false
+  tags: [nomachine]
+
+- name: Remove NoMachine public UDP UFW rule
+  ufw:
+    rule: allow
+    port: "{{ nomachine_port | default(4000) | string }}"
+    proto: udp
+    delete: true
+  when: install_nomachine | default(false) | bool
+  failed_when: false
+  tags: [nomachine]
+
+- name: Allow NoMachine NX TCP from Tailscale range
+  ufw:
+    rule: allow
+    port: "{{ nomachine_port | default(4000) | string }}"
+    proto: tcp
+    from_ip: "{{ tailscale_ssh_source_cidr }}"
+  when:
+    - install_nomachine | default(false) | bool
+    - nomachine_allow_tailscale | default(true) | bool
+  tags: [nomachine]
+
+- name: Allow NoMachine NX UDP from Tailscale range
+  ufw:
+    rule: allow
+    port: "{{ nomachine_port | default(4000) | string }}"
+    proto: udp
+    from_ip: "{{ tailscale_ssh_source_cidr }}"
+  when:
+    - install_nomachine | default(false) | bool
+    - nomachine_allow_tailscale | default(true) | bool
+  tags: [nomachine]
+
 - name: Enable UFW
   ufw:
     state: enabled

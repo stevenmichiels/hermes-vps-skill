@@ -12,7 +12,8 @@ auditable, private-by-default environment.
 
 Under the hood it uses Terraform, Ansible, Docker Compose, system-wide
 `uv`/`uvx`, separated workbench directories, health checks, backups, release
-checks, Docker cleanup, and optional private Firecrawl deployment.
+checks, Docker cleanup, optional private Firecrawl deployment, and an opt-in
+NoMachine/XFCE remote desktop profile.
 
 The base workbench installs `uv` and `uvx` system-wide by default for fast,
 isolated Python tool execution. Poetry is intentionally not a baseline package;
@@ -47,6 +48,7 @@ production VPS configuration.
 - Reviewable infrastructure through Terraform and Ansible.
 - Hermes gateway ports bound to loopback unless public exposure is explicitly accepted.
 - Optional private Firecrawl stack attached to the Hermes Docker network by alias.
+- Optional NoMachine/XFCE remote desktop restricted to the Tailscale access boundary.
 - Separated VPS zones for live app runtimes, staging, operator repos, agent
   workspaces, service installs, and backups.
 - Operational checks for status, health, backups, releases, Docker cleanup, and timers.
@@ -65,6 +67,7 @@ Controller machine
 
 Hetzner VPS
 |-- Tailscale-only SSH for operators
+|-- optional NoMachine/XFCE desktop over Tailscale
 |-- Hermes Agent container
 |-- /var/lib/hermes persistent Hermes state
 |-- optional private Firecrawl stack
@@ -129,6 +132,7 @@ This template assumes:
 - A trusted controller machine for Terraform and Ansible runs.
 - A trusted Tailscale tailnet when Tailscale SSH is used for ongoing access.
 - Loopback-bound Hermes and Firecrawl service ports unless public exposure is explicitly accepted.
+- Optional remote desktop access through NoMachine over Tailscale, not public GUI ports.
 - Secret-bearing runtime files remain on the controller or VPS and are never committed.
 - Backups are private artifacts and should be encrypted when copied off the VPS.
 
@@ -159,7 +163,8 @@ services.
 
 - Terraform templates for Hetzner server and firewall setup.
 - Ansible roles for base hardening, UFW/fail2ban, Docker, Hermes Agent,
-  optional Firecrawl, backups, health checks, release checks, and timers.
+  optional NoMachine/XFCE remote desktop, optional Firecrawl, backups, health
+  checks, release checks, and timers.
 - Source-controlled Hermes runtime skill templates under `templates/hermes-skills/`.
 - Source-controlled Codex and Claude skill templates under
   `templates/codex-skills/` and `templates/claude-skills/`.
@@ -237,6 +242,71 @@ Prefer this official docs MCP for documentation lookups. Do not install
 third-party LangChain code-search MCP packages unless their login and credit
 model has been explicitly accepted.
 
+## Optional Remote Desktop
+
+The default workbench is headless. A desktop adds packages, memory pressure,
+and local session surface, so enable it only when you need an actual GUI.
+
+The supported opt-in profile installs XFCE plus NoMachine. Keep it private by
+connecting only over Tailscale:
+
+In ignored `templates/ansible/vars/local.yml`:
+
+```yaml
+install_remote_desktop: true
+install_nomachine: true
+```
+
+Then rerun Ansible after Tailscale SSH is already stable. NoMachine is a
+proprietary free-for-personal-use package; keep that supply-chain decision
+explicit when enabling this profile.
+
+The playbook installs the official Linux amd64 DEB, verifies the vendor MD5,
+disables NoMachine UPnP/NAT-PMP port mapping, writes
+`/home/<admin_user>/.nx/config/authorized.crt` from `admin_authorized_keys`,
+disables NoMachine automatic firewall changes, removes installer-created public
+UFW rules, requires NX private-key authentication, and allows TCP/UDP `4000`
+only from the Tailscale CIDR. NoMachine virtual desktops are forced to start
+XFCE with `/etc/X11/Xsession startxfce4`.
+
+In the NoMachine client on macOS:
+
+1. Add a new connection.
+2. Host: VPS Tailscale IP or MagicDNS hostname.
+3. Protocol: `NX`.
+4. Port: `4000`.
+5. Authentication: key-based/private key.
+6. Username: the non-root admin user.
+7. Private key: the key matching an `admin_authorized_keys` entry.
+8. If NoMachine says it cannot detect a display, choose **Yes** to let it
+   create a new virtual display. On a VPS this is expected. You can also enable
+   "Always create a new display on this server" for this connection.
+
+Concrete connection values look like this:
+
+```text
+Protocol: NX
+Host: <vps-tailscale-ip-or-magicdns-name>
+Port: 4000
+Username: <admin_user>
+Authentication: Private key
+Private key: ~/.ssh/<key-listed-in-admin_authorized_keys>
+```
+
+For the current local deployment, use the ignored `inventory.ini` and
+`vars/local.yml` files as the source of truth for `Host`, `Username`, and the
+controller SSH key path. Do not copy those private values into the public repo.
+
+Do not sign in to NoMachine Network/cloud for this VPS. Use the direct
+Tailscale IP/hostname connection.
+
+Resource guidance:
+
+- Minimum for light desktop use: 2 vCPU / 4 GB RAM.
+- Preferred for browsers, IDEs, and agent tools: 4 vCPU / 8 GB RAM or more.
+- Avoid public GUI ports. Keep access on Tailscale and validate UFW plus the
+  Hetzner firewall after enabling the profile.
+
 Claude Code CLI and Codex CLI are treated as interactive coding tools for Git
 repos or disposable workspaces. They should not write directly to production
 runtime directories, production env files, or production databases. Use Git,
@@ -282,6 +352,7 @@ You need:
 - Optional: Tailscale, strongly recommended for private ongoing SSH access
 - Optional: Telegram or another Hermes-supported gateway integration
 - Optional: Firecrawl, if you enable private scrape/crawl/PDF extraction workflows
+- Optional: NoMachine client, if you enable the remote desktop profile
 
 ## First-Time Setup
 
@@ -329,7 +400,8 @@ config files, credentials, an inspected Terraform plan, and an explicit apply.
 8. Enable the Hermes service through Ansible.
 9. Verify the deployment on the VPS with `hermes-vps status`.
 10. Verify timers for backups, Docker cleanup, release checks, and health checks.
-11. Optional: enable Firecrawl and validate the private Hermes-network alias with `hermes-vps status`.
+11. Optional: enable NoMachine/XFCE remote desktop only after Tailscale SSH is stable.
+12. Optional: enable Firecrawl and validate the private Hermes-network alias with `hermes-vps status`.
 
 ## Recovery Model
 

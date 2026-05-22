@@ -23,6 +23,22 @@
     refresh_uv: false
     uv_version: "0.11.14"
     uv_install_dir: "/usr/local/bin"
+    install_remote_desktop: false
+    remote_desktop_packages:
+      - xfce4
+      - xfce4-terminal
+      - dbus-x11
+      - xauth
+    install_nomachine: false
+    nomachine_version: "9.5.7_2"
+    nomachine_deb_url: "https://download.nomachine.com/download/9.5/Linux/nomachine_9.5.7_2_amd64.deb"
+    nomachine_deb_md5: "0bfa0b79d4340d864384305eb99e39b8"
+    nomachine_port: 4000
+    nomachine_key_auth_only: true
+    nomachine_allow_tailscale: true
+    nomachine_disable_upnp: true
+    nomachine_disable_firewall_autoconfig: true
+    nomachine_default_desktop_command: "/etc/X11/Xsession startxfce4"
     install_claude_code: false
     refresh_claude_code: false
     install_codex_cli: false
