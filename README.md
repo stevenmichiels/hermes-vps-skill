@@ -3,8 +3,8 @@
 Run agentic coding workflows from a hardened VPS instead of your laptop.
 
 This skill provisions a private Hetzner workbench for Hermes Agent, Claude
-Code, Codex CLI, Firecrawl, MCP tooling, tmux, and SSH/Tailscale-based remote
-development.
+Code, Codex CLI, Firecrawl, n8n, MCP tooling, tmux, and SSH/Tailscale-based
+remote development.
 
 It is built for people who want their AI coding agents to run close to their
 servers, keep working after disconnects, and operate inside a reproducible,
@@ -12,8 +12,8 @@ auditable, private-by-default environment.
 
 Under the hood it uses Terraform, Ansible, Docker Compose, system-wide
 `uv`/`uvx`, separated workbench directories, health checks, backups, release
-checks, Docker cleanup, optional private Firecrawl deployment, and an opt-in
-NoMachine/XFCE remote desktop profile.
+checks, Docker cleanup, optional private Firecrawl and n8n deployments, and an
+opt-in NoMachine/XFCE remote desktop profile.
 
 The base workbench installs `uv` and `uvx` system-wide by default for fast,
 isolated Python tool execution. Poetry is intentionally not a baseline package;
@@ -48,6 +48,7 @@ production VPS configuration.
 - Reviewable infrastructure through Terraform and Ansible.
 - Hermes gateway ports bound to loopback unless public exposure is explicitly accepted.
 - Optional private Firecrawl stack attached to the Hermes Docker network by alias.
+- Optional private n8n stack bound to loopback or a Tailscale address.
 - Optional NoMachine/XFCE remote desktop restricted to the Tailscale access boundary.
 - Separated VPS zones for live app runtimes, staging, operator repos, agent
   workspaces, service installs, and backups.
@@ -71,6 +72,7 @@ Hetzner VPS
 |-- Hermes Agent container
 |-- /var/lib/hermes persistent Hermes state
 |-- optional private Firecrawl stack
+|-- optional private n8n stack
 |-- /home/<admin_user>/repos and agent-workspaces
 `-- /var/backups/hermes-vps backups
 ```
@@ -105,7 +107,7 @@ reviewable, and reversible.
 
 - Repeatable infrastructure instead of click-by-click server setup.
 - SSH guardrails: narrow bootstrap access first, then Tailscale-only SSH.
-- Private-by-default Hermes gateway/dashboard and Firecrawl API binds.
+- Private-by-default Hermes gateway/dashboard, Firecrawl API, and n8n binds.
 - Secret-safe runtime setup with placeholder env templates and explicit "do not commit" rules.
 - One-command operator checks through `hermes-vps status`.
 - Scheduled backups, Docker cleanup, stable release checks, and health transition alerts.
@@ -131,7 +133,7 @@ This template assumes:
 - A single-operator or small trusted-admin VPS, not a multi-tenant host.
 - A trusted controller machine for Terraform and Ansible runs.
 - A trusted Tailscale tailnet when Tailscale SSH is used for ongoing access.
-- Loopback-bound Hermes and Firecrawl service ports unless public exposure is explicitly accepted.
+- Loopback-bound Hermes, Firecrawl, and n8n service ports unless public exposure is explicitly accepted.
 - Optional remote desktop access through NoMachine over Tailscale, not public GUI ports.
 - Secret-bearing runtime files remain on the controller or VPS and are never committed.
 - Backups are private artifacts and should be encrypted when copied off the VPS.
@@ -150,6 +152,8 @@ services.
   Firecrawl's self-host stack can move across multiple coordinated images. Pin
   them in `templates/ansible/vars/local.yml` before production use if you need
   reproducible rollouts.
+- Optional n8n defaults to a pinned Docker image tag and refuses to start until
+  `N8N_ENCRYPTION_KEY` is set in `/etc/n8n/.env` on the VPS.
 - The base role uses upstream remote install scripts for Tailscale and Claude
   CLI. Optional Codex CLI support installs Node/npm packages from the configured
   OS/npm registries plus the distro `bubblewrap` package for Linux sandboxing.
@@ -163,8 +167,8 @@ services.
 
 - Terraform templates for Hetzner server and firewall setup.
 - Ansible roles for base hardening, UFW/fail2ban, Docker, Hermes Agent,
-  optional NoMachine/XFCE remote desktop, optional Firecrawl, backups, health
-  checks, release checks, and timers.
+  optional NoMachine/XFCE remote desktop, optional Firecrawl, optional n8n,
+  backups, health checks, release checks, and timers.
 - Source-controlled Hermes runtime skill templates under `templates/hermes-skills/`.
 - Source-controlled Codex and Claude skill templates under
   `templates/codex-skills/` and `templates/claude-skills/`.
@@ -188,6 +192,8 @@ Default managed parent zones:
 /opt/hermes
 /opt/firecrawl
 /etc/firecrawl
+/var/lib/n8n
+/etc/n8n
 /var/backups
 ```
 
@@ -202,6 +208,7 @@ Suggested concrete layout once real app and repo names are known:
 /opt/openclaw
 /opt/hermes
 /opt/firecrawl
+/var/lib/n8n
 /var/backups
 ```
 
@@ -217,6 +224,11 @@ entry:
 ```sh
 codex mcp add firecrawl --env FIRECRAWL_API_URL=http://127.0.0.1:3002 -- npx -y firecrawl-mcp
 ```
+
+n8n is an optional private service zone, not a public webhook endpoint by
+default. Its compose file and env live under `/etc/n8n`, persistent data lives
+under `/var/lib/n8n`, and access is through an SSH tunnel or an explicit
+Tailscale bind until a separate reverse-proxy/TLS design is reviewed.
 
 This writes to the operator's `~/.codex/config.toml`; treat it as local account
 state, not a tracked deployment secret. Validate with `codex mcp list` and an
@@ -352,6 +364,7 @@ You need:
 - Optional: Tailscale, strongly recommended for private ongoing SSH access
 - Optional: Telegram or another Hermes-supported gateway integration
 - Optional: Firecrawl, if you enable private scrape/crawl/PDF extraction workflows
+- Optional: n8n, if you enable private workflow automation experiments
 - Optional: NoMachine client, if you enable the remote desktop profile
 
 ## First-Time Setup
@@ -368,8 +381,9 @@ Example values are intentionally generic. Replace them with your own values loca
 
 Keep real secrets and private deployment details out of committed files.
 Provider tokens and bot/API keys belong in secure shell/env storage or on the
-VPS in `/var/lib/hermes/.env` and `/etc/firecrawl/firecrawl.env`. Do not include
-runtime env files in unencrypted backups, logs, or support bundles.
+VPS in `/var/lib/hermes/.env`, `/etc/firecrawl/firecrawl.env`, and
+`/etc/n8n/.env`. Do not include runtime env files in unencrypted backups, logs,
+or support bundles.
 
 ## Safe Review Path
 
@@ -402,6 +416,7 @@ config files, credentials, an inspected Terraform plan, and an explicit apply.
 10. Verify timers for backups, Docker cleanup, release checks, and health checks.
 11. Optional: enable NoMachine/XFCE remote desktop only after Tailscale SSH is stable.
 12. Optional: enable Firecrawl and validate the private Hermes-network alias with `hermes-vps status`.
+13. Optional: enable n8n only after setting `N8N_ENCRYPTION_KEY` on the VPS, then access it through an SSH tunnel or Tailscale bind.
 
 ## Recovery Model
 

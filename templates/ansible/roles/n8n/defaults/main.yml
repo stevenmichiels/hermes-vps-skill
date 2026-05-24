@@ -1,0 +1,17 @@
+n8n_enable_service: false
+n8n_image: "docker.n8n.io/n8nio/n8n:2.21.7"
+n8n_timezone: "Europe/Brussels"
+
+n8n_env_dir: "/etc/n8n"
+n8n_env_file: "/etc/n8n/.env"
+n8n_compose_file: "/etc/n8n/docker-compose.yml"
+n8n_data_dir: "/var/lib/n8n"
+
+n8n_bind_address: "127.0.0.1"
+n8n_host_port: 5678
+n8n_tailscale_source_cidr: "{{ tailscale_ssh_source_cidr | default('100.64.0.0/10') }}"
+n8n_allow_tailscale_ufw: true
+
+n8n_container_uid: "1000"
+n8n_container_gid: "1000"
+n8n_compose_pull: false

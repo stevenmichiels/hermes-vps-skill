@@ -74,6 +74,7 @@
         mode: "0755"
     install_hermes: true
     install_firecrawl: false
+    install_n8n: false
 
     hermes_enable_service: false
     hermes_require_telegram: true
@@ -148,6 +149,13 @@
     firecrawl_block_media: true
     firecrawl_logging_level: "INFO"
 
+    # Optional private n8n stack.
+    n8n_enable_service: false
+    n8n_image: "docker.n8n.io/n8nio/n8n:2.21.7"
+    n8n_timezone: "Europe/Brussels"
+    n8n_bind_address: "127.0.0.1"
+    n8n_host_port: 5678
+
     auto_reboot: true
     auto_reboot_time: "03:30"
   pre_tasks:
@@ -171,3 +179,6 @@
       when: install_hermes | bool
     - role: firecrawl
       when: install_firecrawl | bool
+    - role: n8n
+      when: install_n8n | bool
+      tags: n8n

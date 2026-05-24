@@ -20,6 +20,14 @@ if [ -d /etc/firecrawl ]; then
   backup_paths+=(etc/firecrawl)
 fi
 
+if [ -d /etc/n8n ]; then
+  backup_paths+=(etc/n8n)
+fi
+
+if [ -d /var/lib/n8n ]; then
+  backup_paths+=(var/lib/n8n)
+fi
+
 cd /
 tar \
   --ignore-failed-read \

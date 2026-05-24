@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add an opt-in private n8n role that is disabled by default, binds to loopback
+  or an explicit Tailscale IP only, persists `/var/lib/n8n`, creates
+  `/etc/n8n/.env` without overwriting it, and refuses to start until
+  `N8N_ENCRYPTION_KEY` is set on the VPS. Include `/etc/n8n` and
+  `/var/lib/n8n` in Hermes backups when present.
+
 ## v0.3.5 - 2026-05-22
 
 v0.3.5 adds an opt-in NoMachine/XFCE desktop profile while preserving the

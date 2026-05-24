@@ -1,0 +1,122 @@
+- name: Validate n8n private bind address
+  assert:
+    that:
+      - >-
+        n8n_bind_address == '127.0.0.1' or
+        (n8n_bind_address is match('^100\\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\\.'))
+    fail_msg: >
+      n8n_bind_address must be 127.0.0.1 or a Tailscale 100.64.0.0/10 address.
+      This role intentionally does not support public binds.
+
+- name: Install n8n container runtime packages
+  apt:
+    name:
+      - docker.io
+      - docker-compose-v2
+    state: present
+
+- name: Ensure Docker daemon is enabled and started
+  systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Ensure n8n directories exist
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - path: "{{ n8n_env_dir }}"
+      owner: root
+      group: root
+      mode: "0750"
+    - path: "{{ n8n_data_dir }}"
+      owner: root
+      group: root
+      mode: "0755"
+    - path: "{{ n8n_data_dir }}/data"
+      owner: "{{ n8n_container_uid }}"
+      group: "{{ n8n_container_gid }}"
+      mode: "0700"
+    - path: "{{ n8n_data_dir }}/files"
+      owner: "{{ n8n_container_uid }}"
+      group: "{{ n8n_container_gid }}"
+      mode: "0770"
+
+- name: Create n8n env file if missing
+  template:
+    src: env.j2
+    dest: "{{ n8n_env_file }}"
+    owner: root
+    group: root
+    mode: "0640"
+    force: false
+
+- name: Install n8n compose file
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ n8n_compose_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Allow n8n from Tailscale only when bound to a Tailscale address
+  ufw:
+    rule: allow
+    port: "{{ n8n_host_port | string }}"
+    proto: tcp
+    from_ip: "{{ n8n_tailscale_source_cidr }}"
+  when:
+    - n8n_allow_tailscale_ufw | bool
+    - n8n_bind_address is match('^100\\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\\.')
+
+- name: Read n8n env file before enabling service
+  slurp:
+    src: "{{ n8n_env_file }}"
+  register: n8n_env_raw
+  when: n8n_enable_service | bool
+
+- name: Refuse to start n8n without explicit encryption key
+  assert:
+    that:
+      - "'__SET_ME__' not in (n8n_env_raw.content | b64decode)"
+      - >-
+        ((n8n_env_raw.content | b64decode).splitlines()
+        | select('match', '^N8N_ENCRYPTION_KEY=.{32,}$')
+        | list
+        | length) == 1
+    fail_msg: >
+      Set a real N8N_ENCRYPTION_KEY in {{ n8n_env_file }} on the VPS before
+      enabling n8n. Do not commit or paste this key into chat.
+  when: n8n_enable_service | bool
+
+- name: Pull n8n image
+  command: docker compose -f "{{ n8n_compose_file }}" pull
+  register: n8n_compose_pull_result
+  changed_when: >
+    (
+      (n8n_compose_pull_result.stdout | default('')) ~ '\n' ~
+      (n8n_compose_pull_result.stderr | default(''))
+    ) is search('Downloaded newer image|Pull complete|Status: Downloaded newer image|Downloaded|Pulling fs layer')
+  when:
+    - n8n_enable_service | bool
+    - n8n_compose_pull | bool
+
+- name: Start n8n container stack
+  command: docker compose -f "{{ n8n_compose_file }}" up -d
+  register: n8n_compose_up_result
+  changed_when: >
+    (
+      (n8n_compose_up_result.stdout | default('')) ~ '\n' ~
+      (n8n_compose_up_result.stderr | default(''))
+    ) is search('Creating|Recreating|Starting|Stopping|Removing|Created|Pulled')
+  when: n8n_enable_service | bool
+
+- name: Stop n8n container stack when disabled
+  command: docker compose -f "{{ n8n_compose_file }}" down
+  failed_when: false
+  changed_when: false
+  when: not (n8n_enable_service | bool)

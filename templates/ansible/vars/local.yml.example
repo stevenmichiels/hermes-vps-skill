@@ -54,3 +54,10 @@ hermes_url_prefetch_enabled: false
 # Optional private Firecrawl stack; keep loopback-bound.
 install_firecrawl: false
 firecrawl_enable_service: false
+
+# Optional private n8n stack; keep loopback-bound unless deliberately binding
+# to the VPS Tailscale IP. Set N8N_ENCRYPTION_KEY only in /etc/n8n/.env on
+# the VPS, never in this local vars file.
+install_n8n: false
+n8n_enable_service: false
+n8n_bind_address: "127.0.0.1"
