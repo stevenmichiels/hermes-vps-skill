@@ -443,6 +443,10 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - Treat `~/.cloudflared/<tunnel-uuid>.json` as tunnel-specific credentials.
   Copy only this JSON to the VPS path configured by
   `cloudflared_credentials_file`; never paste it into chat or commit it.
+- Before running `cloudflared tunnel login`, add local agent deny/exclude rules
+  for `~/.cloudflared/cert.pem` and `~/.cloudflared/*.json` in controller-local
+  Codex/Claude config where supported. Document the policy in the skill; do not
+  commit machine-local credentials or generated tunnel files.
 - Use `cloudflared_install_method: apt_repo` on Ubuntu/Debian VPS hosts unless
   there is a deliberate reason to pin a direct DEB URL.
 - First Ansible pass may install/render `cloudflared` with

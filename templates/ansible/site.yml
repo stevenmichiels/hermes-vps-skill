@@ -172,7 +172,7 @@
     # Optional Cloudflare Tunnel for n8n public webhooks only.
     cloudflared_enable_service: false
     cloudflared_install_method: "manual"
-    cloudflared_binary_path: "/usr/local/bin/cloudflared"
+    cloudflared_binary_path: "/usr/bin/cloudflared"
     cloudflared_tunnel_name: "hermes-n8n"
     cloudflared_tunnel_uuid: "__SET_ME__"
     cloudflared_hostname: "n8n.<domain>"

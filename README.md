@@ -148,7 +148,8 @@ cloudflared tunnel list
 
 Keep controller `cert.pem` on the controller. Copy only the generated
 `~/.cloudflared/<tunnel-uuid>.json` tunnel credentials file to the VPS path
-configured by `cloudflared_credentials_file`. See
+configured by `cloudflared_credentials_file`. Add local agent deny/exclude rules
+for `~/.cloudflared/cert.pem` and `~/.cloudflared/*.json` before login. See
 `templates/ansible/roles/cloudflared/README.md` for the full staged runbook.
 
 ## What This Is Not

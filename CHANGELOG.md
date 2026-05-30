@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Document that controller-local Cloudflare tunnel credentials should be hidden
+  from agent reads with local Codex/Claude deny or exclude rules before
+  `cloudflared tunnel login`.
+- Align the Cloudflare Tunnel site default binary path with package installs.
 - Document the locally managed Cloudflare Tunnel bootstrap flow, including
   hostname prerequisites, controller-side `cloudflared tunnel login/create/route
   dns`, sensitive file handling, first-pass hello-world validation, and

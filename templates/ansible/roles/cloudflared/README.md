@@ -66,6 +66,12 @@ cloudflared tunnel list
 
 The login command writes an account-scoped `cert.pem` on the controller. Treat
 that file as sensitive because it can manage tunnels in the Cloudflare account.
+Before running login, add local agent deny/exclude rules for:
+
+```text
+~/.cloudflared/cert.pem
+~/.cloudflared/*.json
+```
 
 The create command writes a tunnel-specific credentials JSON such as:
 
