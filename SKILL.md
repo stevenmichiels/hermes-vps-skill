@@ -226,7 +226,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
   - `zsh -lc 'terraform -chdir=skills/hermes-vps/templates/infra init -backend=false -input=false -lockfile=readonly'`
   - `zsh -lc 'terraform -chdir=skills/hermes-vps/templates/infra validate'`
 - `terraform init -backend=false` may create an ignored `.terraform/` directory in the infra template folder; do not commit it.
-- Real plans still require `templates/infra/terraform.tfvars` or equivalent vars plus `TF_VAR_hcloud_token`; never run `apply` unless the plan has been inspected and matches the approved scope.
+- Real plans still require `templates/infra/terraform.tfvars` or equivalent vars plus a secure Hetzner token source such as `hctf`; never run `apply` unless the plan has been inspected and matches the approved scope.
 - Rollback for a Homebrew install is `zsh -lc 'brew uninstall hashicorp/tap/terraform'`; run `brew autoremove` only after checking it will not remove dependencies used by other tools.
 
 ## Core principle
@@ -259,34 +259,20 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 13) Keep production apps, staging, repos, and agent workspaces isolated; never let an agent directly mutate production runtime files or share production secrets by default.
 
 ## Credential loading (Hetzner token)
-- Preferred/default path: export `TF_VAR_hcloud_token` from a secure secret source before Terraform commands.
-- If the operator has a shell helper for Hetzner credentials, load that profile first and run the helper in the active shell.
-- If the helper exports `HCLOUD_TOKEN`, export Terraform's expected variable from it: `export TF_VAR_hcloud_token="$HCLOUD_TOKEN"`.
-- Never assume helper output is token-only; avoid command substitution with helpers unless their behavior is verified.
-
-### Optional macOS `hcloudtoken` helper
-- This is optional macOS controller convenience, not a dependency of the skill. Keep it in the operator's shell profile or local secret tooling, never in this repo.
-- Example zsh helper shape:
-  ```bash
-  hcloudtoken() {
-    export HCLOUD_TOKEN="$(security find-generic-password -a "$USER" -s hcloud-token -w)"
-    export TF_VAR_hcloud_token="$HCLOUD_TOKEN"
-    echo "HCLOUD_TOKEN and TF_VAR_hcloud_token exported for this shell"
-  }
-  ```
-- Store the token in macOS Keychain first, outside the repo:
-  ```bash
-  security add-generic-password -a "$USER" -s hcloud-token -w '<paste-token-here>'
-  ```
-- Use it by loading the shell profile, running `hcloudtoken`, then running `terraform plan`.
-- Do not use `TF_VAR_hcloud_token="$(hcloudtoken)"`; the helper prints status text and is meant to set environment variables in the current shell.
+- Preferred/default path for local controller work: use the protected `hctf` wrapper when available.
+- `hctf` loads the Hetzner token from macOS Keychain service `hcloud-token` and injects `HCLOUD_TOKEN` plus `TF_VAR_hcloud_token` only into one Terraform child process.
+- Safe plan example: `hctf -chdir=templates/infra plan -input=false`.
+- Allowed helper subcommands should be limited to `fmt`, `init`, `validate`, `plan`, `show`, `state`, `import`, `providers`, `output`, and `version`.
+- The helper must refuse `apply` and `destroy`; Steven applies manually after reviewing an approved saved plan.
+- If `hctf` is unavailable, export `TF_VAR_hcloud_token` from a secure source for one command only. Never print the token, use command substitution around token helpers, or commit tfvars/state/plans.
+- Optional macOS Keychain storage, outside the repo: `security add-generic-password -a "$USER" -s hcloud-token -w '<paste-token-here>'`.
 
 ## Hetzner CLI / hcloud
 - `hcloud` is optional. Terraform remains the source of truth for managed Hetzner server and firewall changes.
 - Install on a macOS controller only when Hetzner read-only inspection or emergency operator checks are useful:
   - `zsh -lc 'brew install hcloud'`
   - `zsh -lc 'hcloud version'`
-- Preferred auth for temporary controller sessions: load `HCLOUD_TOKEN` from a secure secret source in the active shell, then run read-only `hcloud` commands.
+- Preferred auth for temporary controller sessions: use a narrow operator-controlled `HCLOUD_TOKEN` source for the child command only, then run read-only `hcloud` commands.
 - Safe read-only checks:
   - `hcloud server list`
   - `hcloud server describe hermes-vps`
@@ -580,8 +566,7 @@ Before Hermes env values are configured and the service is enabled, `hermes-vps 
   - `sudo hermes-vps backup`
   - `sudo tar -tzf /var/backups/hermes-vps/latest.tar.gz | grep -E '^(etc/hermes|var/lib/hermes|etc/firecrawl|etc/n8n|var/lib/n8n|etc/windmill|var/lib/windmill)' | head`
 - Terraform safety before infra changes:
-  - load `TF_VAR_hcloud_token` through the documented `hcloudtoken` flow
-  - `terraform -chdir=templates/infra plan`
+  - run `hctf -chdir=templates/infra plan -input=false`
   - stop before apply if the plan replaces `hcloud_server.vps`
 
 ## Firecrawl private stack
