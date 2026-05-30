@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Document the locally managed Cloudflare Tunnel bootstrap flow, including
+  hostname prerequisites, controller-side `cloudflared tunnel login/create/route
+  dns`, sensitive file handling, first-pass hello-world validation, and
+  webhook-only steady state.
 - Add an opt-in `cloudflared_install_method: apt_repo` path that configures
   Cloudflare's official apt repository before installing the `cloudflared`
   package.

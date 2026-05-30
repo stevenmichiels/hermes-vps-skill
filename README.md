@@ -124,6 +124,33 @@ reviewable, and reversible.
 - Local config examples so the public skill can stay generic while private
   machine/account values stay ignored.
 
+## Cloudflare Tunnel Quickstart
+
+For the n8n public-webhook/private-editor pattern, use a locally managed
+Cloudflare Tunnel. You do not need a Cloudflare API token for this path.
+
+Prerequisites:
+
+- The parent domain is already added to Cloudflare and using Cloudflare
+  nameservers.
+- You have picked a public hostname such as `n8n.example.com`.
+- `cloudflared` is installed on the controller for login and tunnel creation.
+
+Controller-side setup:
+
+```bash
+brew install cloudflared
+cloudflared tunnel login
+cloudflared tunnel create hermes-n8n
+cloudflared tunnel route dns hermes-n8n n8n.example.com
+cloudflared tunnel list
+```
+
+Keep controller `cert.pem` on the controller. Copy only the generated
+`~/.cloudflared/<tunnel-uuid>.json` tunnel credentials file to the VPS path
+configured by `cloudflared_credentials_file`. See
+`templates/ansible/roles/cloudflared/README.md` for the full staged runbook.
+
 ## What This Is Not
 
 This is not a hosted service, a turnkey SaaS product, or a substitute for

@@ -422,6 +422,39 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
   - `windmill_postgres_image` (default pinned tag: `postgres:16.6`)
   - `windmill_auto_generate_secrets` (default: `true`)
 
+## Cloudflare Tunnel bootstrap checklist
+- Use the locally managed Cloudflare Tunnel path for Phase 1 n8n public
+  webhooks. Do not ask Steven for a Cloudflare API token unless he explicitly
+  chooses Terraform/API-managed Cloudflare.
+- Before tunnel work, confirm:
+  - public hostname, such as `n8n.example.com`
+  - the parent domain is already added to Cloudflare and using Cloudflare
+    nameservers
+  - controller-side `cloudflared` is installed for login/create/route commands
+- Controller commands:
+  ```bash
+  cloudflared tunnel login
+  cloudflared tunnel create hermes-n8n
+  cloudflared tunnel route dns hermes-n8n n8n.<domain>
+  cloudflared tunnel list
+  ```
+- Treat controller `cert.pem` as account-scoped and sensitive. It is created by
+  `cloudflared tunnel login` and should stay on the controller.
+- Treat `~/.cloudflared/<tunnel-uuid>.json` as tunnel-specific credentials.
+  Copy only this JSON to the VPS path configured by
+  `cloudflared_credentials_file`; never paste it into chat or commit it.
+- Use `cloudflared_install_method: apt_repo` on Ubuntu/Debian VPS hosts unless
+  there is a deliberate reason to pin a direct DEB URL.
+- First Ansible pass may install/render `cloudflared` with
+  `cloudflared_enable_service: false`; this creates the service user/group and
+  config directory without starting the tunnel.
+- Validate with `cloudflared_hello_world_enabled: true` before routing n8n.
+  Then switch to `cloudflared_hello_world_enabled: false` and
+  `cloudflared_n8n_webhook_enabled: true` for steady state.
+- Do not expose n8n editor/API publicly for Phase 1. Public ingress should route
+  production `/webhook/` paths only unless Steven explicitly approves a broader
+  temporary onboarding route.
+
 ## Inputs / knobs (Terraform)
 - `server_name`, `firewall_name`, `image`, `server_type`, `location`
   - for a new default Hermes server, use `server_name = "hermes-vps"`
