@@ -8,6 +8,18 @@
       n8n_bind_address must be 127.0.0.1 or a Tailscale 100.64.0.0/10 address.
       This role intentionally does not support public binds.
 
+- name: Validate n8n public webhook hostname
+  assert:
+    that:
+      - n8n_public_hostname is not search('://')
+      - n8n_public_hostname is not search('/')
+      - >-
+        (n8n_public_hostname | length == 0) or
+        (n8n_webhook_url | default('https://' ~ n8n_public_hostname ~ '/', true)) is match('^https://[^/]+/$')
+    fail_msg: >
+      n8n_public_hostname must be a hostname without scheme/path, and
+      n8n_webhook_url must be an https:// URL ending in /.
+
 - name: Install n8n container runtime packages
   apt:
     name:
@@ -77,6 +89,7 @@
   slurp:
     src: "{{ n8n_env_file }}"
   register: n8n_env_raw
+  no_log: true
   when: n8n_enable_service | bool
 
 - name: Refuse to start n8n without explicit encryption key
@@ -88,10 +101,89 @@
         | select('match', '^N8N_ENCRYPTION_KEY=.{32,}$')
         | list
         | length) == 1
+      - >-
+        ((n8n_env_raw.content | b64decode).splitlines()
+        | select('match', '^N8N_USER_MANAGEMENT_JWT_SECRET=.{32,}$')
+        | list
+        | length) == 1
     fail_msg: >
-      Set a real N8N_ENCRYPTION_KEY in {{ n8n_env_file }} on the VPS before
-      enabling n8n. Do not commit or paste this key into chat.
+      Set real N8N_ENCRYPTION_KEY and N8N_USER_MANAGEMENT_JWT_SECRET values in
+      {{ n8n_env_file }} on the VPS before enabling n8n. Do not commit or paste
+      these keys into chat.
+  no_log: true
   when: n8n_enable_service | bool
+
+- name: Validate n8n SQLite backup settings
+  assert:
+    that:
+      - n8n_sqlite_backup_age_recipient | length > 0
+      - n8n_sqlite_backup_sqlite_image is search('@sha256:')
+      - "'__SET_ME__' not in n8n_sqlite_backup_sqlite_image"
+    fail_msg: >
+      Set n8n_sqlite_backup_age_recipient and a pinned
+      n8n_sqlite_backup_sqlite_image digest before enabling online backups.
+  when: n8n_sqlite_backup_enabled | bool
+
+- name: Install n8n SQLite backup packages
+  apt:
+    name:
+      - age
+    state: present
+  when: n8n_sqlite_backup_enabled | bool
+
+- name: Ensure n8n backup directory exists
+  file:
+    path: "{{ n8n_sqlite_backup_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  when: n8n_sqlite_backup_enabled | bool
+
+- name: Install n8n SQLite backup script
+  template:
+    src: hermes-n8n-sqlite-backup.j2
+    dest: "{{ n8n_sqlite_backup_script_path }}"
+    owner: root
+    group: root
+    mode: "0750"
+  when: n8n_sqlite_backup_enabled | bool
+
+- name: Install n8n SQLite backup systemd service
+  template:
+    src: hermes-n8n-sqlite-backup.service.j2
+    dest: /etc/systemd/system/hermes-n8n-sqlite-backup.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: n8n_sqlite_backup_service_template
+  when: n8n_sqlite_backup_enabled | bool
+
+- name: Install n8n SQLite backup systemd timer
+  template:
+    src: hermes-n8n-sqlite-backup.timer.j2
+    dest: /etc/systemd/system/hermes-n8n-sqlite-backup.timer
+    owner: root
+    group: root
+    mode: "0644"
+  register: n8n_sqlite_backup_timer_template
+  when: n8n_sqlite_backup_enabled | bool
+
+- name: Reload systemd for n8n SQLite backup units
+  systemd:
+    daemon_reload: true
+  when:
+    - n8n_sqlite_backup_enabled | bool
+    - >-
+      (n8n_sqlite_backup_service_template is defined and n8n_sqlite_backup_service_template.changed) or
+      (n8n_sqlite_backup_timer_template is defined and n8n_sqlite_backup_timer_template.changed)
+
+- name: Manage n8n SQLite backup timer
+  systemd:
+    name: hermes-n8n-sqlite-backup.timer
+    enabled: "{{ n8n_sqlite_backup_timer_enabled | bool }}"
+    state: "{{ (n8n_sqlite_backup_timer_enabled | bool) | ternary('started', 'stopped') }}"
+  when: n8n_sqlite_backup_enabled | bool
 
 - name: Pull n8n image
   command: docker compose -f "{{ n8n_compose_file }}" pull

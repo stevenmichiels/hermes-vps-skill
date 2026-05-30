@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add disabled-by-default Cloudflare Tunnel support for n8n public production
+  webhooks while keeping the n8n editor/API private and the VPS closed to
+  public `80`, `443`, and `5678`.
+- Add disabled-by-default n8n SQLite online backup support using a pinned
+  SQLite sidecar image, SQLite `.backup`, integrity checks, encrypted age
+  artifacts, and an optional systemd timer.
 - Add an opt-in private n8n role that is disabled by default, binds to loopback
   or an explicit Tailscale IP only, persists `/var/lib/n8n`, creates
   `/etc/n8n/.env` without overwriting it, and refuses to start until

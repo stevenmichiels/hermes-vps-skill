@@ -61,3 +61,24 @@ firecrawl_enable_service: false
 install_n8n: false
 n8n_enable_service: false
 n8n_bind_address: "127.0.0.1"
+n8n_public_hostname: ""
+n8n_editor_base_url: "http://127.0.0.1:5678/"
+n8n_webhook_url: ""
+n8n_secure_cookie: false
+n8n_sqlite_backup_enabled: false
+n8n_sqlite_backup_timer_enabled: false
+n8n_sqlite_backup_age_recipient: ""
+n8n_sqlite_backup_sqlite_image: "keinos/sqlite3@sha256:<pinned-digest>"
+
+# Optional Cloudflare Tunnel for n8n public production webhooks only. Keep the
+# tunnel locally managed: create it with cloudflared, store credentials on the
+# VPS, and do not commit credentials or tunnel tokens.
+install_cloudflared: false
+cloudflared_enable_service: false
+cloudflared_tunnel_uuid: "__SET_ME__"
+cloudflared_hostname: "n8n.<domain>"
+cloudflared_hello_world_enabled: true
+cloudflared_n8n_webhook_enabled: false
+cloudflared_n8n_webhook_test_enabled: false
+cloudflared_n8n_webhook_waiting_enabled: false
+cloudflared_n8n_oauth_callback_enabled: false

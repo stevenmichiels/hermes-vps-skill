@@ -1,0 +1,24 @@
+install_cloudflared: false
+cloudflared_enable_service: false
+
+cloudflared_install_method: "manual"
+cloudflared_package_name: "cloudflared"
+cloudflared_deb_url: ""
+cloudflared_deb_checksum: ""
+cloudflared_binary_path: "/usr/local/bin/cloudflared"
+
+cloudflared_user: "cloudflared"
+cloudflared_group: "cloudflared"
+cloudflared_config_dir: "/etc/cloudflared"
+cloudflared_config_file: "/etc/cloudflared/config.yml"
+cloudflared_tunnel_name: "hermes-n8n"
+cloudflared_tunnel_uuid: "__SET_ME__"
+cloudflared_hostname: "n8n.<domain>"
+cloudflared_credentials_file: "/etc/cloudflared/{{ cloudflared_tunnel_uuid }}.json"
+
+cloudflared_hello_world_enabled: true
+cloudflared_n8n_service_url: "http://127.0.0.1:5678"
+cloudflared_n8n_webhook_enabled: false
+cloudflared_n8n_webhook_test_enabled: false
+cloudflared_n8n_webhook_waiting_enabled: false
+cloudflared_n8n_oauth_callback_enabled: false

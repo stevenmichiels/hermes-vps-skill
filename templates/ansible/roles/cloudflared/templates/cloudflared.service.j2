@@ -1,0 +1,20 @@
+[Unit]
+Description=Cloudflare Tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ cloudflared_user }}
+Group={{ cloudflared_group }}
+ExecStart={{ cloudflared_binary_path }} tunnel --config {{ cloudflared_config_file }} run
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths={{ cloudflared_config_dir }}
+
+[Install]
+WantedBy=multi-user.target

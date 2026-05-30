@@ -1,0 +1,8 @@
+[Unit]
+Description=Hermes n8n SQLite online backup
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart={{ n8n_sqlite_backup_script_path }}

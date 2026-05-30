@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BACKUP_DATE="$(date +%F-%H%M%S)"
+N8N_DATA_DIR="{{ n8n_data_dir }}/data"
+BACKUP_DIR="{{ n8n_sqlite_backup_dir }}"
+TMP_DB="${N8N_DATA_DIR}/database-backup-${BACKUP_DATE}.sqlite"
+OUT="${BACKUP_DIR}/hermes-n8n-sqlite-online-${BACKUP_DATE}.tar.gz.age"
+SQLITE_IMAGE="{{ n8n_sqlite_backup_sqlite_image }}"
+
+cleanup() {
+  rm -f "$TMP_DB" "$OUT.tmp"
+}
+trap cleanup EXIT
+
+mkdir -p "$BACKUP_DIR"
+
+docker run --rm \
+  -v "${N8N_DATA_DIR}:/data" \
+  "$SQLITE_IMAGE" \
+  sqlite3 /data/database.sqlite ".backup '/data/$(basename "$TMP_DB")'"
+
+INTEGRITY_RESULT="$(
+  docker run --rm \
+    -v "${N8N_DATA_DIR}:/data" \
+    "$SQLITE_IMAGE" \
+    sqlite3 "/data/$(basename "$TMP_DB")" "PRAGMA integrity_check;"
+)"
+
+printf '%s\n' "$INTEGRITY_RESULT" | grep -qx 'ok'
+
+tar -czf - \
+  "$TMP_DB" \
+  "{{ n8n_env_dir }}" \
+  "{{ cloudflared_config_dir | default('/etc/cloudflared') }}" \
+  | age -r "{{ n8n_sqlite_backup_age_recipient }}" \
+  | tee "$OUT.tmp" > /dev/null
+mv "$OUT.tmp" "$OUT"
+
+trap - EXIT
+rm -f "$TMP_DB"

@@ -3,7 +3,8 @@
 Run agentic coding workflows from a hardened VPS instead of your laptop.
 
 This skill provisions a private Hetzner workbench for Hermes Agent, Claude
-Code, Codex CLI, Firecrawl, n8n, MCP tooling, tmux, and SSH/Tailscale-based
+Code, Codex CLI, Firecrawl, n8n, optional Cloudflare Tunnel webhook ingress,
+MCP tooling, tmux, and SSH/Tailscale-based
 remote development.
 
 It is built for people who want their AI coding agents to run close to their
@@ -12,8 +13,9 @@ auditable, private-by-default environment.
 
 Under the hood it uses Terraform, Ansible, Docker Compose, system-wide
 `uv`/`uvx`, separated workbench directories, health checks, backups, release
-checks, Docker cleanup, optional private Firecrawl and n8n deployments, and an
-opt-in NoMachine/XFCE remote desktop profile.
+checks, Docker cleanup, optional private Firecrawl and n8n deployments, optional
+Cloudflare Tunnel ingress for n8n production webhooks, and an opt-in
+NoMachine/XFCE remote desktop profile.
 
 The base workbench installs `uv` and `uvx` system-wide by default for fast,
 isolated Python tool execution. Poetry is intentionally not a baseline package;
@@ -49,6 +51,8 @@ production VPS configuration.
 - Hermes gateway ports bound to loopback unless public exposure is explicitly accepted.
 - Optional private Firecrawl stack attached to the Hermes Docker network by alias.
 - Optional private n8n stack bound to loopback or a Tailscale address.
+- Optional Cloudflare Tunnel ingress for n8n `/webhook/` only, without opening
+  public `80`, `443`, or `5678` on the VPS.
 - Optional NoMachine/XFCE remote desktop restricted to the Tailscale access boundary.
 - Separated VPS zones for live app runtimes, staging, operator repos, agent
   workspaces, service installs, and backups.
@@ -73,6 +77,7 @@ Hetzner VPS
 |-- /var/lib/hermes persistent Hermes state
 |-- optional private Firecrawl stack
 |-- optional private n8n stack
+|-- optional cloudflared tunnel for n8n /webhook/ only
 |-- /home/<admin_user>/repos and agent-workspaces
 `-- /var/backups/hermes-vps backups
 ```
@@ -154,6 +159,9 @@ services.
   reproducible rollouts.
 - Optional n8n defaults to a pinned Docker image tag and refuses to start until
   `N8N_ENCRYPTION_KEY` is set in `/etc/n8n/.env` on the VPS.
+- Optional Cloudflare Tunnel support assumes a locally managed tunnel and
+  credentials JSON created by the operator. The template does not store
+  tunnel tokens or credentials in Git.
 - The base role uses upstream remote install scripts for Tailscale and Claude
   CLI. Optional Codex CLI support installs Node/npm packages from the configured
   OS/npm registries plus the distro `bubblewrap` package for Linux sandboxing.
@@ -229,6 +237,13 @@ n8n is an optional private service zone, not a public webhook endpoint by
 default. Its compose file and env live under `/etc/n8n`, persistent data lives
 under `/var/lib/n8n`, and access is through an SSH tunnel or an explicit
 Tailscale bind until a separate reverse-proxy/TLS design is reviewed.
+
+For public n8n production webhooks, prefer the optional Cloudflare Tunnel path:
+keep n8n loopback-bound, route only `^/webhook/` to
+`http://127.0.0.1:5678`, keep the editor/API private, and leave public VPS
+`80`, `443`, and `5678` closed. Temporary routes such as `/webhook-test/` or
+`/rest/oauth2-credential/callback` should be enabled only for setup windows and
+then removed.
 
 This writes to the operator's `~/.codex/config.toml`; treat it as local account
 state, not a tracked deployment secret. Validate with `codex mcp list` and an
@@ -365,6 +380,8 @@ You need:
 - Optional: Telegram or another Hermes-supported gateway integration
 - Optional: Firecrawl, if you enable private scrape/crawl/PDF extraction workflows
 - Optional: n8n, if you enable private workflow automation experiments
+- Optional: Cloudflare Tunnel, if you expose n8n production webhooks while
+  keeping the editor/API private
 - Optional: NoMachine client, if you enable the remote desktop profile
 
 ## First-Time Setup
@@ -416,7 +433,11 @@ config files, credentials, an inspected Terraform plan, and an explicit apply.
 10. Verify timers for backups, Docker cleanup, release checks, and health checks.
 11. Optional: enable NoMachine/XFCE remote desktop only after Tailscale SSH is stable.
 12. Optional: enable Firecrawl and validate the private Hermes-network alias with `hermes-vps status`.
-13. Optional: enable n8n only after setting `N8N_ENCRYPTION_KEY` on the VPS, then access it through an SSH tunnel or Tailscale bind.
+13. Optional: enable n8n only after setting `N8N_ENCRYPTION_KEY` and
+    `N8N_USER_MANAGEMENT_JWT_SECRET` on the VPS, then access it through an SSH
+    tunnel or Tailscale bind.
+14. Optional: enable Cloudflare Tunnel for n8n production webhooks only after
+    the locally managed tunnel and credentials file exist on the VPS.
 
 ## Recovery Model
 

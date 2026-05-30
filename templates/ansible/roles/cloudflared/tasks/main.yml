@@ -1,0 +1,124 @@
+- name: Validate cloudflared install method
+  assert:
+    that:
+      - cloudflared_install_method in ['manual', 'deb_url', 'package']
+    fail_msg: "cloudflared_install_method must be manual, deb_url, or package."
+
+- name: Install cloudflared support packages for DEB install
+  apt:
+    name:
+      - ca-certificates
+    state: present
+  when: cloudflared_install_method == 'deb_url'
+
+- name: Download cloudflared DEB
+  get_url:
+    url: "{{ cloudflared_deb_url }}"
+    dest: "/tmp/cloudflared.deb"
+    mode: "0644"
+    checksum: "{{ cloudflared_deb_checksum | default(omit, true) }}"
+  when: cloudflared_install_method == 'deb_url'
+
+- name: Install cloudflared DEB
+  apt:
+    deb: "/tmp/cloudflared.deb"
+    state: present
+  when: cloudflared_install_method == 'deb_url'
+
+- name: Install cloudflared package
+  apt:
+    name: "{{ cloudflared_package_name }}"
+    state: present
+  when: cloudflared_install_method == 'package'
+
+- name: Ensure cloudflared group exists
+  group:
+    name: "{{ cloudflared_group }}"
+    system: true
+
+- name: Ensure cloudflared user exists
+  user:
+    name: "{{ cloudflared_user }}"
+    group: "{{ cloudflared_group }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: /nonexistent
+    create_home: false
+
+- name: Ensure cloudflared config directory exists
+  file:
+    path: "{{ cloudflared_config_dir }}"
+    state: directory
+    owner: root
+    group: "{{ cloudflared_group }}"
+    mode: "0750"
+
+- name: Validate Cloudflare tunnel identity
+  assert:
+    that:
+      - cloudflared_tunnel_uuid != '__SET_ME__'
+      - cloudflared_tunnel_uuid | length > 8
+      - cloudflared_hostname != 'n8n.<domain>'
+      - cloudflared_hostname is not search('://')
+      - cloudflared_hostname is not search('/')
+    fail_msg: >
+      Set cloudflared_tunnel_uuid and cloudflared_hostname in ignored local vars
+      before installing Cloudflare Tunnel config.
+
+- name: Check cloudflared credentials file
+  stat:
+    path: "{{ cloudflared_credentials_file }}"
+  register: cloudflared_credentials_stat
+  no_log: true
+
+- name: Refuse to enable cloudflared without tunnel credentials
+  assert:
+    that:
+      - cloudflared_credentials_stat.stat.exists
+      - cloudflared_credentials_stat.stat.isreg
+    fail_msg: >
+      Create the locally managed Cloudflare Tunnel and place its credentials JSON
+      at {{ cloudflared_credentials_file }} before enabling cloudflared.
+  when: cloudflared_enable_service | bool
+
+- name: Check cloudflared binary
+  stat:
+    path: "{{ cloudflared_binary_path }}"
+  register: cloudflared_binary_stat
+
+- name: Refuse to enable cloudflared without binary
+  assert:
+    that:
+      - cloudflared_binary_stat.stat.exists
+    fail_msg: >
+      Install cloudflared at {{ cloudflared_binary_path }} or set
+      cloudflared_install_method to deb_url/package before enabling the service.
+  when: cloudflared_enable_service | bool
+
+- name: Install cloudflared config
+  template:
+    src: config.yml.j2
+    dest: "{{ cloudflared_config_file }}"
+    owner: root
+    group: "{{ cloudflared_group }}"
+    mode: "0640"
+
+- name: Install cloudflared systemd service
+  template:
+    src: cloudflared.service.j2
+    dest: /etc/systemd/system/cloudflared.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: cloudflared_service_template
+
+- name: Reload systemd for cloudflared
+  systemd:
+    daemon_reload: true
+  when: cloudflared_service_template.changed
+
+- name: Manage cloudflared service
+  systemd:
+    name: cloudflared
+    enabled: "{{ cloudflared_enable_service | bool }}"
+    state: "{{ (cloudflared_enable_service | bool) | ternary('started', 'stopped') }}"

@@ -239,7 +239,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - Avoid root login unless explicitly requested and still enabled for a bootstrap step.
 - Do not change SSH/80/443 public exposure without explicit approval.
 - A fresh rebuild is not complete until Tailscale SSH is proven and public bootstrap SSH is removed from both UFW and the Hetzner firewall.
-- Keep Hermes, Firecrawl, n8n, and Windmill service ports loopback-bound unless a public exposure decision is explicit.
+- Keep Hermes, Firecrawl, n8n, and Windmill service ports loopback-bound unless a public exposure decision is explicit. Prefer Cloudflare Tunnel for n8n public production webhooks so the VPS does not expose public `80`, `443`, or `5678`.
 - Keep remote desktop access on Tailscale through NoMachine; do not expose GUI ports publicly.
 - Do not reopen public SSH for Termius or another SSH client. Put the client device on the Tailscale tailnet and connect to the VPS Tailscale IP/hostname on port 22 as the non-root admin user with the configured SSH key.
 
@@ -402,6 +402,15 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
   - `n8n_bind_address` (default: `127.0.0.1`; may be a Tailscale `100.64.0.0/10` address)
   - `n8n_host_port` (default: `5678`)
   - `n8n_image` (default pinned tag: `docker.n8n.io/n8nio/n8n:2.21.7`)
+  - `n8n_public_hostname`, `n8n_webhook_url`, `n8n_editor_base_url`, `n8n_proxy_hops`, `n8n_secure_cookie`
+  - `n8n_sqlite_backup_enabled`, `n8n_sqlite_backup_timer_enabled`, `n8n_sqlite_backup_age_recipient`, `n8n_sqlite_backup_sqlite_image`
+- Cloudflare Tunnel knobs:
+  - `install_cloudflared` (default: `false`; optional locally managed Cloudflare Tunnel)
+  - `cloudflared_enable_service` (default: `false`)
+  - `cloudflared_install_method` (`manual`, `deb_url`, or `package`; default: `manual`)
+  - `cloudflared_tunnel_uuid`, `cloudflared_hostname`, `cloudflared_credentials_file`
+  - `cloudflared_hello_world_enabled`
+  - `cloudflared_n8n_webhook_enabled`, `cloudflared_n8n_webhook_test_enabled`, `cloudflared_n8n_webhook_waiting_enabled`, `cloudflared_n8n_oauth_callback_enabled`
 - Windmill knobs:
   - `windmill_enable_service` (default: `false`; starts only after `/etc/windmill/.env` has real database credentials)
   - `windmill_env_dir`, `windmill_env_file` (defaults: `/etc/windmill`, `/etc/windmill/.env`)
@@ -571,7 +580,15 @@ Before Hermes env values are configured and the service is enabled, `hermes-vps 
   - data: `/var/lib/n8n`
 - The n8n role is gated by `install_n8n`; service state is gated by `n8n_enable_service`.
 - The role creates `/etc/n8n/.env` only if missing and refuses startup while `N8N_ENCRYPTION_KEY` is unset or still `__SET_ME__`.
-- Public webhooks require a separate reviewed change: DNS, reverse proxy with TLS, public `80/443` firewall rules, `WEBHOOK_URL`, `N8N_PROXY_HOPS=1`, and `N8N_SECURE_COOKIE=true`.
+- Public production webhooks should use the Cloudflare Tunnel path when possible:
+  - create a locally managed Cloudflare Tunnel and route DNS to it
+  - keep n8n bound to `127.0.0.1:5678`
+  - route only `^/webhook/` to `http://127.0.0.1:5678` in steady state
+  - keep `/webhook-test/`, `/webhook-waiting/`, `/rest/*`, and editor/API paths private unless temporarily opened for setup
+  - keep public VPS `80`, `443`, and `5678` closed
+  - configure `WEBHOOK_URL`, `N8N_PROXY_HOPS`, and `N8N_EDITOR_BASE_URL`
+  - leave `N8N_SECURE_COOKIE=false` when the editor is reached over local HTTP via SSH/Tailscale
+  - use webhook-level auth for workflows with side effects
 
 ## Windmill private stack
 - Use official Windmill self-host docs and pricing as source of truth:

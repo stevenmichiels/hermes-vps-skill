@@ -75,6 +75,7 @@
     install_hermes: true
     install_firecrawl: false
     install_n8n: false
+    install_cloudflared: false
     install_windmill: false
 
     hermes_enable_service: false
@@ -156,6 +157,30 @@
     n8n_timezone: "Europe/Brussels"
     n8n_bind_address: "127.0.0.1"
     n8n_host_port: 5678
+    n8n_public_hostname: ""
+    n8n_editor_base_url: "http://127.0.0.1:5678/"
+    n8n_webhook_url: ""
+    n8n_proxy_hops: 1
+    n8n_secure_cookie: false
+    n8n_sqlite_backup_enabled: false
+    n8n_sqlite_backup_timer_enabled: false
+    n8n_sqlite_backup_dir: "/var/backups/n8n"
+    n8n_sqlite_backup_age_recipient: ""
+    n8n_sqlite_backup_sqlite_image: "keinos/sqlite3@sha256:__SET_ME__"
+    n8n_sqlite_backup_on_calendar: "daily"
+
+    # Optional Cloudflare Tunnel for n8n public webhooks only.
+    cloudflared_enable_service: false
+    cloudflared_install_method: "manual"
+    cloudflared_binary_path: "/usr/local/bin/cloudflared"
+    cloudflared_tunnel_name: "hermes-n8n"
+    cloudflared_tunnel_uuid: "__SET_ME__"
+    cloudflared_hostname: "n8n.<domain>"
+    cloudflared_hello_world_enabled: true
+    cloudflared_n8n_webhook_enabled: false
+    cloudflared_n8n_webhook_test_enabled: false
+    cloudflared_n8n_webhook_waiting_enabled: false
+    cloudflared_n8n_oauth_callback_enabled: false
 
     # Optional private Windmill stack.
     windmill_enable_service: false
@@ -192,6 +217,9 @@
     - role: n8n
       when: install_n8n | bool
       tags: n8n
+    - role: cloudflared
+      when: install_cloudflared | bool
+      tags: cloudflared
     - role: windmill
       when: install_windmill | bool
       tags: windmill

@@ -1,0 +1,31 @@
+tunnel: {{ cloudflared_tunnel_uuid }}
+credentials-file: {{ cloudflared_credentials_file }}
+ingress:
+{% if cloudflared_hello_world_enabled | bool %}
+  - hostname: {{ cloudflared_hostname }}
+    path: "^/hello$"
+    service: hello_world
+{% endif %}
+{% if cloudflared_n8n_webhook_enabled | bool %}
+  - hostname: {{ cloudflared_hostname }}
+    path: "^/webhook/"
+    service: {{ cloudflared_n8n_service_url }}
+{% endif %}
+{% if cloudflared_n8n_webhook_test_enabled | bool %}
+  - hostname: {{ cloudflared_hostname }}
+    path: "^/webhook-test/"
+    service: {{ cloudflared_n8n_service_url }}
+{% endif %}
+{% if cloudflared_n8n_webhook_waiting_enabled | bool %}
+  - hostname: {{ cloudflared_hostname }}
+    path: "^/webhook-waiting/"
+    service: {{ cloudflared_n8n_service_url }}
+{% endif %}
+{% if cloudflared_n8n_oauth_callback_enabled | bool %}
+  - hostname: {{ cloudflared_hostname }}
+    path: "^/rest/oauth2-credential/callback$"
+    service: {{ cloudflared_n8n_service_url }}
+{% endif %}
+  - hostname: {{ cloudflared_hostname }}
+    service: http_status:404
+  - service: http_status:404

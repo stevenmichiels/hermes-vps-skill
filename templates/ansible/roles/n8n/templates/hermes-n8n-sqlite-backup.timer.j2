@@ -1,0 +1,9 @@
+[Unit]
+Description=Run Hermes n8n SQLite online backup
+
+[Timer]
+OnCalendar={{ n8n_sqlite_backup_on_calendar }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

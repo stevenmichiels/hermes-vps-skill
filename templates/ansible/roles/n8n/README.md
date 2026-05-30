@@ -24,7 +24,7 @@ n8n_enable_service: false
 Then create the files without starting n8n:
 
 ```bash
-cd templates/ansible
+cd /Users/stevenmichiels/.codex/skills/hermes-vps/templates/ansible
 ansible-playbook -i inventory.ini site.yml --limit vps --tags n8n
 ```
 
@@ -69,18 +69,20 @@ http://100.x.y.z:5678
 
 This is still private to the tailnet and does not open public Hetzner firewall ports.
 
-## Public Webhooks Later
+## Public Webhooks With Cloudflare Tunnel
 
 Do this as a separate change:
 
-- Pick a public subdomain and configure DNS.
-- Add a reverse proxy with TLS, such as Caddy or Traefik.
-- Keep n8n bound to loopback behind the proxy if possible.
-- Enable public `80` and `443` in Terraform and Ansible only after review.
-- Configure n8n proxy URL settings:
-  - `N8N_HOST`
-  - `N8N_PROTOCOL=https`
-  - `WEBHOOK_URL=https://<subdomain>/`
-  - `N8N_PROXY_HOPS=1`
-- Set `N8N_SECURE_COOKIE=true` once HTTPS is active.
-- Review auth, MFA, backups, update policy, execution-data retention, and SSRF/file-access restrictions before exposing it.
+- Keep n8n bound to `127.0.0.1:5678`.
+- Use a locally managed Cloudflare Tunnel through the `cloudflared` role.
+- Route only `^/webhook/` to `http://127.0.0.1:5678` in steady state.
+- Keep `/webhook-test/`, `/webhook-waiting/`, `/rest/*`, and the editor/API private unless temporarily opened for setup.
+- Keep public VPS `80`, `443`, and `5678` closed.
+- Configure n8n public URL settings with:
+  - `n8n_public_hostname`
+  - `n8n_editor_base_url`
+  - `n8n_proxy_hops`
+  - `n8n_secure_cookie`
+- Leave `N8N_SECURE_COOKIE=false` when the editor is reached through plain `http://127.0.0.1:5678` over SSH/Tailscale.
+- Enable `n8n_sqlite_backup_enabled` only after setting an age recipient and a pinned SQLite sidecar image digest.
+- Use webhook-level auth for any workflow with side effects.
