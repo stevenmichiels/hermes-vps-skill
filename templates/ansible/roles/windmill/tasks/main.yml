@@ -1,0 +1,177 @@
+- name: Validate Windmill private bind address
+  assert:
+    that:
+      - >-
+        windmill_bind_address == '127.0.0.1' or
+        (windmill_bind_address is match('^100\\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\\.'))
+    fail_msg: >
+      windmill_bind_address must be 127.0.0.1 or a Tailscale 100.64.0.0/10 address.
+      This role intentionally does not support public binds.
+
+- name: Install Windmill container runtime packages
+  apt:
+    name:
+      - docker.io
+      - docker-compose-v2
+      - openssl
+    state: present
+
+- name: Ensure Docker daemon is enabled and started
+  systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Ensure Windmill directories exist
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - path: "{{ windmill_env_dir }}"
+      owner: root
+      group: root
+      mode: "0750"
+    - path: "{{ windmill_data_dir }}"
+      owner: root
+      group: root
+      mode: "0755"
+    - path: "{{ windmill_data_dir }}/postgres"
+      owner: "{{ windmill_postgres_uid }}"
+      group: "{{ windmill_postgres_gid }}"
+      mode: "0700"
+    - path: "{{ windmill_data_dir }}/worker-cache"
+      owner: root
+      group: root
+      mode: "0770"
+    - path: "{{ windmill_data_dir }}/logs"
+      owner: root
+      group: root
+      mode: "0770"
+    - path: "{{ windmill_data_dir }}/lsp-cache"
+      owner: root
+      group: root
+      mode: "0770"
+
+- name: Create Windmill env file if missing
+  template:
+    src: env.j2
+    dest: "{{ windmill_env_file }}"
+    owner: root
+    group: root
+    mode: "0640"
+    force: false
+
+- name: Check Windmill Postgres password placeholder
+  shell: >
+    grep -Eq '^POSTGRES_PASSWORD=(__SET_ME__)?$' "{{ windmill_env_file }}"
+  register: windmill_postgres_password_placeholder
+  changed_when: false
+  failed_when: false
+  no_log: true
+
+- name: Generate Windmill Postgres password
+  command: openssl rand -hex 32
+  register: windmill_generated_postgres_password
+  changed_when: true
+  no_log: true
+  when:
+    - windmill_auto_generate_secrets | bool
+    - windmill_postgres_password_placeholder.rc == 0
+
+- name: Store generated Windmill Postgres password
+  lineinfile:
+    path: "{{ windmill_env_file }}"
+    regexp: '^POSTGRES_PASSWORD='
+    line: "POSTGRES_PASSWORD={{ windmill_generated_postgres_password.stdout }}"
+    mode: "0640"
+  no_log: true
+  when:
+    - windmill_auto_generate_secrets | bool
+    - windmill_postgres_password_placeholder.rc == 0
+
+- name: Store generated Windmill database URL
+  lineinfile:
+    path: "{{ windmill_env_file }}"
+    regexp: '^DATABASE_URL='
+    line: "DATABASE_URL=postgres://postgres:{{ windmill_generated_postgres_password.stdout }}@postgres:5432/{{ windmill_postgres_db }}?sslmode=disable"
+    mode: "0640"
+  no_log: true
+  when:
+    - windmill_auto_generate_secrets | bool
+    - windmill_postgres_password_placeholder.rc == 0
+
+- name: Install Windmill compose file
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ windmill_compose_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Allow Windmill from Tailscale only when bound to a Tailscale address
+  ufw:
+    rule: allow
+    port: "{{ windmill_host_port | string }}"
+    proto: tcp
+    from_ip: "{{ windmill_tailscale_source_cidr }}"
+  when:
+    - windmill_allow_tailscale_ufw | bool
+    - windmill_bind_address is match('^100\\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\\.')
+
+- name: Read Windmill env file before enabling service
+  slurp:
+    src: "{{ windmill_env_file }}"
+  register: windmill_env_raw
+  no_log: true
+  when: windmill_enable_service | bool
+
+- name: Refuse to start Windmill without explicit database credentials
+  assert:
+    that:
+      - "'__SET_ME__' not in (windmill_env_raw.content | b64decode)"
+      - >-
+        ((windmill_env_raw.content | b64decode).splitlines()
+        | select('match', '^POSTGRES_PASSWORD=.{32,}$')
+        | list
+        | length) == 1
+      - >-
+        ((windmill_env_raw.content | b64decode).splitlines()
+        | select('match', '^DATABASE_URL=postgres://postgres:.+@postgres:5432/' ~ windmill_postgres_db ~ '\\?sslmode=disable$')
+        | list
+        | length) == 1
+    fail_msg: >
+      Set real Windmill POSTGRES_PASSWORD and DATABASE_URL values in {{ windmill_env_file }}
+      on the VPS before enabling Windmill. Do not commit or paste these values into chat.
+  no_log: true
+  when: windmill_enable_service | bool
+
+- name: Pull Windmill images
+  command: docker compose --env-file "{{ windmill_env_file }}" -f "{{ windmill_compose_file }}" pull
+  register: windmill_compose_pull_result
+  changed_when: >
+    (
+      (windmill_compose_pull_result.stdout | default('')) ~ '\n' ~
+      (windmill_compose_pull_result.stderr | default(''))
+    ) is search('Downloaded newer image|Pull complete|Status: Downloaded newer image|Downloaded|Pulling fs layer')
+  when:
+    - windmill_enable_service | bool
+    - windmill_compose_pull | bool
+
+- name: Start Windmill container stack
+  command: docker compose --env-file "{{ windmill_env_file }}" -f "{{ windmill_compose_file }}" up -d
+  register: windmill_compose_up_result
+  changed_when: >
+    (
+      (windmill_compose_up_result.stdout | default('')) ~ '\n' ~
+      (windmill_compose_up_result.stderr | default(''))
+    ) is search('Creating|Recreating|Starting|Stopping|Removing|Created|Pulled')
+  when: windmill_enable_service | bool
+
+- name: Stop Windmill container stack when disabled
+  command: docker compose --env-file "{{ windmill_env_file }}" -f "{{ windmill_compose_file }}" down
+  failed_when: false
+  changed_when: false
+  when: not (windmill_enable_service | bool)

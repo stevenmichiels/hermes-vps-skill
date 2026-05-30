@@ -28,6 +28,14 @@ if [ -d /var/lib/n8n ]; then
   backup_paths+=(var/lib/n8n)
 fi
 
+if [ -d /etc/windmill ]; then
+  backup_paths+=(etc/windmill)
+fi
+
+if [ -d /var/lib/windmill ]; then
+  backup_paths+=(var/lib/windmill)
+fi
+
 cd /
 tar \
   --ignore-failed-read \

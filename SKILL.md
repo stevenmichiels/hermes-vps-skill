@@ -1,6 +1,6 @@
 ---
 name: hermes-vps
-description: Provision and harden a Hetzner VPS with Terraform and Ansible as a private AI-agent workbench for Hermes Agent, optional Firecrawl, optional n8n, Claude Code CLI, Codex CLI, and service agents, with strict SSH/firewall guardrails, secret-safe env management, backups, health checks, and repeatable service lifecycle steps.
+description: Provision and harden a Hetzner VPS with Terraform and Ansible as a private AI-agent workbench for Hermes Agent, optional Firecrawl, optional n8n, optional Windmill, Claude Code CLI, Codex CLI, and service agents, with strict SSH/firewall guardrails, secret-safe env management, backups, health checks, and repeatable service lifecycle steps.
 ---
 
 # SKILL: hermes-vps (Hetzner + Terraform + Ansible + Hermes Agent)
@@ -14,6 +14,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - Deploy Hermes Agent as a Docker Compose gateway on a non-root data directory
 - Optional: deploy a private Firecrawl self-host stack for crawl/scrape/PDF extraction workflows
 - Optional: deploy a private n8n stack for workflow automation experiments
+- Optional: deploy a private Windmill stack for script, flow, and internal-tool experiments
 - Optional: install a lightweight NoMachine/XFCE remote desktop restricted to the Tailscale path
 - Support one VPS as an agent workbench for Claude Code CLI, Codex CLI, and service agents while keeping live apps, staging, repos, and agent services in separate zones
 - Provide operator commands for status, backups, release checks, health alerts, and Docker cleanup
@@ -23,6 +24,12 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
   - https://hermes-agent.nousresearch.com/
   - https://github.com/NousResearch/hermes-agent
 - If this skill drifts from upstream Hermes semantics, update templates before deploy.
+
+## Private installed-skill notes
+- Local public-cleaned source repo: `/Users/stevenmichiels/Repos/hermes-vps-skill` is the public, cleaned version of this skill.
+- When improving this skill, update the public-cleaned repo version too in the same change whenever the improvement is reusable/shareable. Local-only notes may stay only in `/Users/stevenmichiels/.codex/skills/hermes-vps`.
+- Keep secrets, inventories, tfvars, pairing state, OAuth profiles, and VPS runtime state out of the public-cleaned repo.
+- Run VPS deploys and operator applies from the installed local skill at `/Users/stevenmichiels/.codex/skills/hermes-vps`, not from the public-cleaned repo, because the ignored local inventory, Ansible vars, Terraform tfvars/state, and logs live with the installed skill.
 
 ## Hermes image release policy
 - Prefer the newest stable GitHub Release, but keep deployments pinned to an explicit Docker tag.
@@ -70,8 +77,9 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
   - `/opt/openclaw` for OpenClaw if co-hosted
   - `/opt/firecrawl` plus `/etc/firecrawl` for the optional private Firecrawl stack
   - `/var/lib/n8n` plus `/etc/n8n` for the optional private n8n stack
+  - `/var/lib/windmill` plus `/etc/windmill` for the optional private Windmill stack
   - `/var/backups` for backups
-- The Ansible baseline creates the parent zone directories by default: `/srv/apps`, `/home/<admin_user>/repos`, `/home/<admin_user>/agent-workspaces`, `/opt/openclaw`, `/opt/hermes`, and `/var/backups`. The Firecrawl role manages `/opt/firecrawl` and `/etc/firecrawl` only when Firecrawl is enabled; the n8n role manages `/var/lib/n8n` and `/etc/n8n` only when n8n is enabled. Create concrete app/repo directories only when the real app or repo name is known.
+- The Ansible baseline creates the parent zone directories by default: `/srv/apps`, `/home/<admin_user>/repos`, `/home/<admin_user>/agent-workspaces`, `/opt/openclaw`, `/opt/hermes`, and `/var/backups`. The Firecrawl role manages `/opt/firecrawl` and `/etc/firecrawl` only when Firecrawl is enabled; the n8n role manages `/var/lib/n8n` and `/etc/n8n` only when n8n is enabled; the Windmill role manages `/var/lib/windmill` and `/etc/windmill` only when Windmill is enabled. Create concrete app/repo directories only when the real app or repo name is known.
 - Prefer separate Unix users for persistent services when co-hosting multiple agents: an admin SSH user for operators, and service users such as `hermes`, `openclaw`, `claude-agent`, and `codex-agent` when their permissions or runtime state need isolation.
 - Treat Claude Code CLI and Codex CLI as interactive coding tools by default: run them in SSH/tmux/mosh sessions against Git repos or disposable workspaces, with separate auth/config directories when possible.
 - Use the dual-agent review pattern when helpful: one agent develops, the other produces a read-only Markdown review. Do not let both agents edit the same worktree at the same time.
@@ -231,7 +239,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - Avoid root login unless explicitly requested and still enabled for a bootstrap step.
 - Do not change SSH/80/443 public exposure without explicit approval.
 - A fresh rebuild is not complete until Tailscale SSH is proven and public bootstrap SSH is removed from both UFW and the Hetzner firewall.
-- Keep Hermes, Firecrawl, and n8n service ports loopback-bound unless a public exposure decision is explicit.
+- Keep Hermes, Firecrawl, n8n, and Windmill service ports loopback-bound unless a public exposure decision is explicit.
 - Keep remote desktop access on Tailscale through NoMachine; do not expose GUI ports publicly.
 - Do not reopen public SSH for Termius or another SSH client. Put the client device on the Tailscale tailnet and connect to the VPS Tailscale IP/hostname on port 22 as the non-root admin user with the configured SSH key.
 
@@ -244,10 +252,11 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 6) Keep Hermes gateway/dashboard private by default: bind published ports to `127.0.0.1` and access via SSH tunnel or Tailscale.
 7) Keep Firecrawl private by default: bind the API to `127.0.0.1` and attach only its API service to the Hermes Docker network.
 8) Keep n8n private by default: bind it to `127.0.0.1` or a Tailscale IP, never public `0.0.0.0`, and require `N8N_ENCRYPTION_KEY` in `/etc/n8n/.env` before startup.
-9) Keep optional desktop access private: NoMachine over Tailscale only, no public GUI ports.
-10) For existing servers, never apply Terraform if plan shows `hcloud_server` destroy/replace unless rebuild is explicitly intended.
-11) Keep deterministic artifacts as source of truth: Terraform + Ansible templates in this skill.
-12) Keep production apps, staging, repos, and agent workspaces isolated; never let an agent directly mutate production runtime files or share production secrets by default.
+9) Keep Windmill private by default: bind it to `127.0.0.1` or a Tailscale IP, never public `0.0.0.0`, and require generated or explicit Postgres credentials in `/etc/windmill/.env` before startup.
+10) Keep optional desktop access private: NoMachine over Tailscale only, no public GUI ports.
+11) For existing servers, never apply Terraform if plan shows `hcloud_server` destroy/replace unless rebuild is explicitly intended.
+12) Keep deterministic artifacts as source of truth: Terraform + Ansible templates in this skill.
+13) Keep production apps, staging, repos, and agent workspaces isolated; never let an agent directly mutate production runtime files or share production secrets by default.
 
 ## Credential loading (Hetzner token)
 - Preferred/default path: export `TF_VAR_hcloud_token` from a secure secret source before Terraform commands.
@@ -355,10 +364,11 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - `claude_skills_dir` (default: `/home/<admin_user>/.claude/skills`)
 - `claude_codex_review_skill_src_dir` (default: `templates/claude-skills/codex-review`)
 - `vps_zone_dirs_enabled` (default: `true`)
-- `vps_zone_dirs` (default parent zones: `/srv/apps`, `/home/<admin_user>/repos`, `/home/<admin_user>/agent-workspaces`, `/opt/openclaw`, `/var/backups`; Hermes role also manages `/opt/hermes`; Firecrawl role manages `/opt/firecrawl` and `/etc/firecrawl` when enabled; n8n role manages `/var/lib/n8n` and `/etc/n8n` when enabled)
+- `vps_zone_dirs` (default parent zones: `/srv/apps`, `/home/<admin_user>/repos`, `/home/<admin_user>/agent-workspaces`, `/opt/openclaw`, `/var/backups`; Hermes role also manages `/opt/hermes`; Firecrawl role manages `/opt/firecrawl` and `/etc/firecrawl` when enabled; n8n role manages `/var/lib/n8n` and `/etc/n8n` when enabled; Windmill role manages `/var/lib/windmill` and `/etc/windmill` when enabled)
 - `install_hermes` (default: `true`)
 - `install_firecrawl` (default: `false`; optional private Firecrawl stack)
 - `install_n8n` (default: `false`; optional private n8n stack)
+- `install_windmill` (default: `false`; optional private Windmill stack)
 - `hermes_enable_service` (default: `false`; set `true` only after `/var/lib/hermes/.env` is configured)
 - `hermes_require_telegram` (default: `true`; requires `TELEGRAM_BOT_TOKEN` before service enable)
 - `hermes_require_allowed_users` (default: `true`; requires `TELEGRAM_ALLOWED_USERS` or `GATEWAY_ALLOWED_USERS`)
@@ -392,6 +402,16 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
   - `n8n_bind_address` (default: `127.0.0.1`; may be a Tailscale `100.64.0.0/10` address)
   - `n8n_host_port` (default: `5678`)
   - `n8n_image` (default pinned tag: `docker.n8n.io/n8nio/n8n:2.21.7`)
+- Windmill knobs:
+  - `windmill_enable_service` (default: `false`; starts only after `/etc/windmill/.env` has real database credentials)
+  - `windmill_env_dir`, `windmill_env_file` (defaults: `/etc/windmill`, `/etc/windmill/.env`)
+  - `windmill_data_dir`, `windmill_compose_file` (defaults: `/var/lib/windmill`, `/etc/windmill/docker-compose.yml`)
+  - `windmill_bind_address` (default: `127.0.0.1`; may be a Tailscale `100.64.0.0/10` address)
+  - `windmill_host_port` (default: `8000`)
+  - `windmill_base_url` (default: `http://127.0.0.1:8000`; set to the Tailscale URL when binding to a Tailscale IP)
+  - `windmill_image`, `windmill_extra_image` (default pinned tag: `1.712.0`)
+  - `windmill_postgres_image` (default pinned tag: `postgres:16.6`)
+  - `windmill_auto_generate_secrets` (default: `true`)
 
 ## Inputs / knobs (Terraform)
 - `server_name`, `firewall_name`, `image`, `server_type`, `location`
@@ -497,8 +517,8 @@ Before Hermes env values are configured and the service is enabled, `hermes-vps 
   - connect with NoMachine over the VPS Tailscale IP/hostname on port `4000`
   - confirm no public GUI ports were added to UFW or the Hetzner firewall
 - Port exposure sanity:
-  - `sudo ss -ltnp | grep -E ':22 |:8642 |:9119 |:3002 |:5678 ' || true`
-  - expected: Hermes, dashboard, Firecrawl, and n8n ports are loopback-bound; SSH is reachable only through allowed Tailscale/bootstrap sources.
+  - `sudo ss -ltnp | grep -E ':22 |:8642 |:9119 |:3002 |:5678 |:8000 ' || true`
+  - expected: Hermes, dashboard, Firecrawl, n8n, and Windmill ports are loopback-bound unless explicitly bound to a Tailscale IP; SSH is reachable only through allowed Tailscale/bootstrap sources.
 - Firecrawl when enabled:
   - `curl -fsS http://127.0.0.1:3002`
   - `sudo docker compose --env-file /etc/firecrawl/firecrawl.env -f /opt/firecrawl/docker-compose.yml ps`
@@ -507,9 +527,12 @@ Before Hermes env values are configured and the service is enabled, `hermes-vps 
 - n8n when enabled:
   - `curl -fsS http://127.0.0.1:5678/healthz || curl -fsSI http://127.0.0.1:5678`
   - `sudo docker compose -f /etc/n8n/docker-compose.yml ps`
+- Windmill when enabled:
+  - `curl -fsS http://127.0.0.1:8000`
+  - `sudo docker compose --env-file /etc/windmill/.env -f /etc/windmill/docker-compose.yml ps`
 - Backup and restore evidence:
   - `sudo hermes-vps backup`
-  - `sudo tar -tzf /var/backups/hermes-vps/latest.tar.gz | grep -E '^(etc/hermes|var/lib/hermes|etc/firecrawl|etc/n8n|var/lib/n8n)' | head`
+  - `sudo tar -tzf /var/backups/hermes-vps/latest.tar.gz | grep -E '^(etc/hermes|var/lib/hermes|etc/firecrawl|etc/n8n|var/lib/n8n|etc/windmill|var/lib/windmill)' | head`
 - Terraform safety before infra changes:
   - load `TF_VAR_hcloud_token` through the documented `hcloudtoken` flow
   - `terraform -chdir=templates/infra plan`
@@ -549,6 +572,24 @@ Before Hermes env values are configured and the service is enabled, `hermes-vps 
 - The n8n role is gated by `install_n8n`; service state is gated by `n8n_enable_service`.
 - The role creates `/etc/n8n/.env` only if missing and refuses startup while `N8N_ENCRYPTION_KEY` is unset or still `__SET_ME__`.
 - Public webhooks require a separate reviewed change: DNS, reverse proxy with TLS, public `80/443` firewall rules, `WEBHOOK_URL`, `N8N_PROXY_HOPS=1`, and `N8N_SECURE_COOKIE=true`.
+
+## Windmill private stack
+- Use official Windmill self-host docs and pricing as source of truth:
+  - `https://www.windmill.dev/docs/advanced/self_host`
+  - `https://www.windmill.dev/pricing`
+- The free self-host edition is suitable for private experiments, with unlimited executions and documented limits such as workspace/user caps.
+- Keep Windmill private in this skill:
+  - default host endpoint: `http://127.0.0.1:8000`
+  - laptop tunnel: `ssh -N -L 8000:127.0.0.1:8000 hermes-vps`
+  - optional Tailscale bind only to a `100.64.0.0/10` address
+- Runtime layout:
+  - compose: `/etc/windmill/docker-compose.yml`
+  - env: `/etc/windmill/.env` (secret-bearing; never commit)
+  - data: `/var/lib/windmill`
+- The Windmill role is gated by `install_windmill`; service state is gated by `windmill_enable_service`.
+- The role creates `/etc/windmill/.env` only if missing, auto-generates a Postgres password when `windmill_auto_generate_secrets=true`, and refuses startup while placeholders remain.
+- The default stack includes Postgres, Windmill server, one default worker, one native worker, and Windmill Extra. It does not expose Caddy or SMTP publicly.
+- Public routes/webhooks require a separate reviewed change: DNS, reverse proxy with TLS, public `80/443` firewall rules, `windmill_base_url`, and explicit access control decisions.
 
 ## Codex CLI Firecrawl access
 - Keep Firecrawl hosted as its own private service stack under `/opt/firecrawl` and `/etc/firecrawl`; do not move it under `/home/<admin_user>` just so Codex CLI can use it.

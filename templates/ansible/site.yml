@@ -75,6 +75,7 @@
     install_hermes: true
     install_firecrawl: false
     install_n8n: false
+    install_windmill: false
 
     hermes_enable_service: false
     hermes_require_telegram: true
@@ -156,6 +157,15 @@
     n8n_bind_address: "127.0.0.1"
     n8n_host_port: 5678
 
+    # Optional private Windmill stack.
+    windmill_enable_service: false
+    windmill_image: "ghcr.io/windmill-labs/windmill:1.712.0"
+    windmill_extra_image: "ghcr.io/windmill-labs/windmill-extra:1.712.0"
+    windmill_postgres_image: "postgres:16.6"
+    windmill_bind_address: "127.0.0.1"
+    windmill_host_port: 8000
+    windmill_base_url: "http://127.0.0.1:8000"
+
     auto_reboot: true
     auto_reboot_time: "03:30"
   pre_tasks:
@@ -182,3 +192,6 @@
     - role: n8n
       when: install_n8n | bool
       tags: n8n
+    - role: windmill
+      when: install_windmill | bool
+      tags: windmill

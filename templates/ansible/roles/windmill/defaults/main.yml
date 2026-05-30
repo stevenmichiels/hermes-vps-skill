@@ -1,0 +1,33 @@
+windmill_enable_service: false
+windmill_compose_pull: false
+
+windmill_image: "ghcr.io/windmill-labs/windmill:1.712.0"
+windmill_extra_image: "ghcr.io/windmill-labs/windmill-extra:1.712.0"
+windmill_postgres_image: "postgres:16.6"
+
+windmill_env_dir: "/etc/windmill"
+windmill_env_file: "/etc/windmill/.env"
+windmill_compose_file: "/etc/windmill/docker-compose.yml"
+windmill_data_dir: "/var/lib/windmill"
+
+windmill_bind_address: "127.0.0.1"
+windmill_host_port: 8000
+windmill_internal_port: 8000
+windmill_base_url: "http://127.0.0.1:8000"
+windmill_tailscale_source_cidr: "{{ tailscale_ssh_source_cidr | default('100.64.0.0/10') }}"
+windmill_allow_tailscale_ufw: true
+
+windmill_postgres_db: "windmill"
+windmill_postgres_uid: "999"
+windmill_postgres_gid: "999"
+windmill_auto_generate_secrets: true
+
+windmill_default_worker_replicas: 1
+windmill_native_worker_replicas: 1
+windmill_worker_privileged: true
+windmill_favor_unshare_pid: true
+windmill_enable_lsp: true
+windmill_enable_debugger: false
+
+windmill_log_max_size: "20m"
+windmill_log_max_file: "5"
