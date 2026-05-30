@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add an opt-in `cloudflared_install_method: apt_repo` path that configures
+  Cloudflare's official apt repository before installing the `cloudflared`
+  package.
 - Add disabled-by-default Cloudflare Tunnel support for n8n public production
   webhooks while keeping the n8n editor/API private and the VPS closed to
   public `80`, `443`, and `5678`.

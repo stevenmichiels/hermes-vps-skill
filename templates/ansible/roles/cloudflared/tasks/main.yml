@@ -1,15 +1,41 @@
 - name: Validate cloudflared install method
   assert:
     that:
-      - cloudflared_install_method in ['manual', 'deb_url', 'package']
-    fail_msg: "cloudflared_install_method must be manual, deb_url, or package."
+      - cloudflared_install_method in ['manual', 'apt_repo', 'deb_url', 'package']
+    fail_msg: "cloudflared_install_method must be manual, apt_repo, deb_url, or package."
 
-- name: Install cloudflared support packages for DEB install
+- name: Install cloudflared support packages for package installs
   apt:
     name:
       - ca-certificates
     state: present
-  when: cloudflared_install_method == 'deb_url'
+  when: cloudflared_install_method in ['apt_repo', 'deb_url']
+
+- name: Ensure apt keyring directory exists for cloudflared
+  file:
+    path: "{{ cloudflared_apt_keyring_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: cloudflared_install_method == 'apt_repo'
+
+- name: Install Cloudflare apt signing key
+  get_url:
+    url: "{{ cloudflared_apt_key_url }}"
+    dest: "{{ cloudflared_apt_keyring }}"
+    owner: root
+    group: root
+    mode: "0644"
+  when: cloudflared_install_method == 'apt_repo'
+
+- name: Configure Cloudflare cloudflared apt repository
+  apt_repository:
+    repo: "{{ cloudflared_apt_repo }}"
+    filename: cloudflared
+    state: present
+    update_cache: true
+  when: cloudflared_install_method == 'apt_repo'
 
 - name: Download cloudflared DEB
   get_url:
@@ -29,7 +55,7 @@
   apt:
     name: "{{ cloudflared_package_name }}"
     state: present
-  when: cloudflared_install_method == 'package'
+  when: cloudflared_install_method in ['apt_repo', 'package']
 
 - name: Ensure cloudflared group exists
   group:
@@ -92,7 +118,7 @@
       - cloudflared_binary_stat.stat.exists
     fail_msg: >
       Install cloudflared at {{ cloudflared_binary_path }} or set
-      cloudflared_install_method to deb_url/package before enabling the service.
+      cloudflared_install_method to apt_repo/deb_url/package before enabling the service.
   when: cloudflared_enable_service | bool
 
 - name: Install cloudflared config

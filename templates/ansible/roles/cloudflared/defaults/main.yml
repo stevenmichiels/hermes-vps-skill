@@ -3,9 +3,13 @@ cloudflared_enable_service: false
 
 cloudflared_install_method: "manual"
 cloudflared_package_name: "cloudflared"
+cloudflared_apt_keyring_dir: "/usr/share/keyrings"
+cloudflared_apt_keyring: "/usr/share/keyrings/cloudflare-main.gpg"
+cloudflared_apt_key_url: "https://pkg.cloudflare.com/cloudflare-main.gpg"
+cloudflared_apt_repo: "deb [signed-by={{ cloudflared_apt_keyring }}] https://pkg.cloudflare.com/cloudflared any main"
 cloudflared_deb_url: ""
 cloudflared_deb_checksum: ""
-cloudflared_binary_path: "/usr/local/bin/cloudflared"
+cloudflared_binary_path: "/usr/bin/cloudflared"
 
 cloudflared_user: "cloudflared"
 cloudflared_group: "cloudflared"

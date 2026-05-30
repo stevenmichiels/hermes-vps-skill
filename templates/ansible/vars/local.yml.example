@@ -75,6 +75,7 @@ n8n_sqlite_backup_sqlite_image: "keinos/sqlite3@sha256:<pinned-digest>"
 # VPS, and do not commit credentials or tunnel tokens.
 install_cloudflared: false
 cloudflared_enable_service: false
+cloudflared_install_method: "manual"
 cloudflared_tunnel_uuid: "__SET_ME__"
 cloudflared_hostname: "n8n.<domain>"
 cloudflared_hello_world_enabled: true

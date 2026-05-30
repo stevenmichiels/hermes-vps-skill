@@ -15,6 +15,16 @@ It supports the n8n public-webhook/private-editor pattern:
 - the VPS does not need public `80`, `443`, or `5678`.
 - Cloudflare Tunnel exposes only selected public paths.
 
+On Ubuntu/Debian hosts, prefer the official Cloudflare apt repository:
+
+```yaml
+cloudflared_install_method: apt_repo
+```
+
+The role installs the Cloudflare apt signing key and repository, then installs
+the `cloudflared` package. The service still refuses to start until the tunnel
+credentials JSON is already present on the VPS.
+
 ## Bootstrap shape
 
 Use a locally managed tunnel:

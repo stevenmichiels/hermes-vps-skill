@@ -407,7 +407,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - Cloudflare Tunnel knobs:
   - `install_cloudflared` (default: `false`; optional locally managed Cloudflare Tunnel)
   - `cloudflared_enable_service` (default: `false`)
-  - `cloudflared_install_method` (`manual`, `deb_url`, or `package`; default: `manual`)
+  - `cloudflared_install_method` (`manual`, `apt_repo`, `deb_url`, or `package`; default: `manual`)
   - `cloudflared_tunnel_uuid`, `cloudflared_hostname`, `cloudflared_credentials_file`
   - `cloudflared_hello_world_enabled`
   - `cloudflared_n8n_webhook_enabled`, `cloudflared_n8n_webhook_test_enabled`, `cloudflared_n8n_webhook_waiting_enabled`, `cloudflared_n8n_oauth_callback_enabled`
