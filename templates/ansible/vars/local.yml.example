@@ -15,7 +15,14 @@ vps_zone_dirs_enabled: true
 bootstrap_public_ssh_cidr: ""
 tailscale_ssh_source_cidr: "100.64.0.0/10"
 
-# Hermes service starts only after /var/lib/hermes/.env is configured.
+# Keep the VPS operator layer installed even when optional apps are disabled.
+install_vps_ops: true
+# Optional Telegram health alerts can be configured on the VPS in
+# /etc/hermes-vps/.env after apply.
+
+# Optional Hermes Agent app. The service starts only after
+# /var/lib/hermes/.env is configured.
+install_hermes: false
 hermes_enable_service: false
 hermes_require_telegram: true
 hermes_require_allowed_users: true

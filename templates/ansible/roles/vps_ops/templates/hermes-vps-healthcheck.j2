@@ -24,9 +24,25 @@ printf '%s\n' "$new_state" >"$STATE_FILE"
 cat "$LOG_FILE"
 
 if [ "$new_state" != "$old_state" ]; then
-  env_file="{{ hermes_env_file }}"
-  token="$(grep -E '^TELEGRAM_BOT_TOKEN=' "$env_file" 2>/dev/null | cut -d= -f2- | sed -e 's/^["'\'']//; s/["'\'']$//' || true)"
-  chat_id="$(grep -E '^(TELEGRAM_ALLOWED_USERS|GATEWAY_ALLOWED_USERS)=' "$env_file" 2>/dev/null | head -n1 | cut -d= -f2- | cut -d, -f1 | sed -e 's/^["'\'']//; s/["'\'']$//' || true)"
+  read_env_value() {
+    local env_file="$1" key_pattern="$2"
+    grep -E "^(${key_pattern})=" "$env_file" 2>/dev/null |
+      head -n1 |
+      cut -d= -f2- |
+      cut -d, -f1 |
+      sed -e 's/^["'\'']//; s/["'\'']$//' || true
+  }
+
+  env_file="{{ vps_ops_env_file }}"
+  legacy_env_file="{{ hermes_env_file }}"
+  token="$(read_env_value "$env_file" "TELEGRAM_BOT_TOKEN")"
+  chat_id="$(read_env_value "$env_file" "TELEGRAM_ALLOWED_USERS|GATEWAY_ALLOWED_USERS")"
+  if [ -z "$token" ] && [ -f "$legacy_env_file" ]; then
+    token="$(read_env_value "$legacy_env_file" "TELEGRAM_BOT_TOKEN")"
+  fi
+  if [ -z "$chat_id" ] && [ -f "$legacy_env_file" ]; then
+    chat_id="$(read_env_value "$legacy_env_file" "TELEGRAM_ALLOWED_USERS|GATEWAY_ALLOWED_USERS")"
+  fi
   if [ -n "$token" ] && [ -n "$chat_id" ]; then
     text="Hermes VPS health changed: ${old_state:-unknown} -> ${new_state}"
     curl -fsS -X POST "https://api.telegram.org/bot${token}/sendMessage" \

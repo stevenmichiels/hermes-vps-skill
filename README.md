@@ -3,19 +3,20 @@
 Run agentic coding workflows from a hardened VPS instead of your laptop.
 
 This skill provisions a private Hetzner workbench for agentic coding and
-automation. The base layer is hardened SSH/Tailscale access, Docker, operator
-tooling, backups, health checks, and separated workspaces. Hermes Agent is a
-first-class optional app profile alongside Claude Code, Codex CLI, Firecrawl,
-n8n, optional Cloudflare Tunnel webhook ingress, MCP tooling, tmux, and
-SSH/Tailscale-based remote development.
+automation. The base layer is hardened SSH/Tailscale access, Docker, the
+`vps_ops` operator role, backups, health checks, and separated workspaces.
+Hermes Agent is a first-class optional app profile alongside Claude Code, Codex
+CLI, Firecrawl, n8n, optional Cloudflare Tunnel webhook ingress, MCP tooling,
+tmux, and SSH/Tailscale-based remote development.
 
 It is built for people who want their AI coding agents to run close to their
 servers, keep working after disconnects, and operate inside a reproducible,
 auditable, private-by-default environment.
 
 Under the hood it uses Terraform, Ansible, Docker Compose, system-wide
-`uv`/`uvx`, separated workbench directories, health checks, backups, release
-checks, Docker cleanup, optional Hermes, Firecrawl, and n8n deployments,
+`uv`/`uvx`, separated workbench directories, the `vps_ops` role for health
+checks, backups, release checks, and Docker cleanup, optional Hermes, Firecrawl,
+and n8n deployments,
 optional Cloudflare Tunnel ingress for n8n production webhooks, and an opt-in
 NoMachine/XFCE remote desktop profile.
 
@@ -38,7 +39,8 @@ you need them:
 
 1. Provision the VPS with Terraform.
 2. Apply the base Ansible hardening.
-3. Verify SSH/Tailscale access and `hermes-vps status`.
+3. Verify SSH/Tailscale access, create the first `hermes-vps backup`, then run
+   `hermes-vps status`.
 4. Add Hermes Agent, Codex/Claude helpers, Firecrawl, n8n, or NoMachine only
    when needed.
 5. Expose only production webhooks through Cloudflare Tunnel.
@@ -95,6 +97,8 @@ for the public-webhook/private-editor n8n milestone.
 - Optional NoMachine/XFCE remote desktop restricted to the Tailscale access boundary.
 - Separated VPS zones for live app runtimes, staging, operator repos, agent
   workspaces, service installs, and backups.
+- VPS operator commands live in their own role and do not require the Hermes
+  Agent app to be installed.
 - One-command status checks for health, backups, off-box freshness, guarded
   pruning, releases, Docker cleanup, timers, optional n8n, and optional
   Cloudflare Tunnel.
@@ -108,7 +112,7 @@ for the public-webhook/private-editor n8n milestone.
 ```text
 Controller machine
 |-- Terraform -> Hetzner server + firewall
-|-- Ansible   -> VPS hardening + Docker + service roles + timers
+|-- Ansible   -> VPS hardening + Docker + vps_ops + optional service roles
 `-- Local ignored config
     |-- templates/infra/terraform.tfvars
     |-- templates/ansible/inventory.ini
@@ -117,6 +121,7 @@ Controller machine
 Hetzner VPS
 |-- Tailscale-only SSH for operators
 |-- optional NoMachine/XFCE desktop over Tailscale
+|-- hermes-vps operator commands, backups, health checks, and timers
 |-- optional Hermes Agent container
 |-- /var/lib/hermes persistent Hermes state when Hermes is enabled
 |-- optional private Firecrawl stack
@@ -251,9 +256,9 @@ services.
 ## What It Includes
 
 - Terraform templates for Hetzner server and firewall setup.
-- Ansible roles for base hardening, UFW/fail2ban, Docker, optional Hermes Agent,
-  optional NoMachine/XFCE remote desktop, optional Firecrawl, optional n8n,
-  backups, health checks, release checks, and timers.
+- Ansible roles for base hardening, UFW/fail2ban, Docker, `vps_ops` operator
+  commands/backups/health checks/timers, optional Hermes Agent, optional
+  NoMachine/XFCE remote desktop, optional Firecrawl, and optional n8n.
 - Source-controlled Hermes runtime skill templates under `templates/hermes-skills/`.
 - Source-controlled Codex and Claude skill templates under
   `templates/codex-skills/` and `templates/claude-skills/`.

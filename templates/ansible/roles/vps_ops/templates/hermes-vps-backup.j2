@@ -14,10 +14,19 @@ TMP_ARCHIVE="${ARCHIVE}.tmp"
 mkdir -p "$BACKUP_DIR"
 chmod 0700 "$BACKUP_DIR"
 
-backup_paths=(
-  etc/hermes
-  var/lib/hermes
-)
+backup_paths=()
+
+if [ -d /etc/hermes-vps ]; then
+  backup_paths+=(etc/hermes-vps)
+fi
+
+if [ -d /etc/hermes ]; then
+  backup_paths+=(etc/hermes)
+fi
+
+if [ -d /var/lib/hermes ]; then
+  backup_paths+=(var/lib/hermes)
+fi
 
 if [ -d /etc/firecrawl ]; then
   backup_paths+=(etc/firecrawl)
@@ -40,6 +49,11 @@ if [ -d /var/lib/windmill ]; then
 fi
 
 cd /
+if [ "${#backup_paths[@]}" -eq 0 ]; then
+  printf 'backup_failed=no_paths_found\n' >&2
+  exit 1
+fi
+
 tar \
   --ignore-failed-read \
   --warning=no-file-changed \

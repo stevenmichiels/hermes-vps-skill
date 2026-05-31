@@ -5,6 +5,11 @@
 - Clarify that the base private workbench is the center of the project, with
   Hermes Agent as a first-class optional app profile rather than the default
   conceptual center.
+- Split the VPS operator layer into a dedicated `vps_ops` Ansible role while
+  keeping the existing `hermes-vps` command and systemd unit names stable.
+- Make Hermes Agent opt-in by default (`install_hermes: false`) without losing
+  status, backup, healthcheck, off-box verification, release-check, or cleanup
+  operator coverage.
 
 ## v0.4.0 - 2026-05-31
 

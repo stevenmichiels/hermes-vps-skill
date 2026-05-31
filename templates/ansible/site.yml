@@ -72,7 +72,8 @@
         owner: root
         group: root
         mode: "0755"
-    install_hermes: true
+    install_vps_ops: true
+    install_hermes: false
     install_firecrawl: false
     install_n8n: false
     install_cloudflared: false
@@ -109,13 +110,16 @@
     hermes_memory_limit: "4g"
     hermes_cpus: "2.0"
 
+    vps_ops_env_dir: "/etc/hermes-vps"
+    vps_ops_env_file: "/etc/hermes-vps/.env"
+
     hermes_backup_dir: "/var/backups/hermes-vps"
     hermes_backup_retention_days: 14
     hermes_backup_timer_enabled: true
     hermes_backup_on_calendar: "daily"
     hermes_docker_cleanup_timer_enabled: true
     hermes_docker_cleanup_on_calendar: "weekly"
-    hermes_release_check_timer_enabled: true
+    hermes_release_check_timer_enabled: "{{ install_hermes | bool }}"
     hermes_release_check_on_calendar: "daily"
     hermes_healthcheck_timer_enabled: true
     hermes_healthcheck_on_calendar: "*:0/5"
@@ -216,6 +220,9 @@
   roles:
     - base
     - security
+    - role: vps_ops
+      when: install_vps_ops | bool
+      tags: vps_ops
     - role: hermes
       when: install_hermes | bool
       tags: hermes

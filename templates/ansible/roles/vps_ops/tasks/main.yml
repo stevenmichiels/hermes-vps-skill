@@ -1,0 +1,113 @@
+- name: Create VPS operator directories
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - path: "{{ hermes_backup_dir }}"
+      mode: "0700"
+    - path: "{{ hermes_monitor_state_dir }}"
+      mode: "0700"
+    - path: "{{ vps_ops_env_dir }}"
+      mode: "0700"
+
+- name: Install initial VPS operator notification env file if missing
+  template:
+    src: env.j2
+    dest: "{{ vps_ops_env_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+    force: false
+
+- name: Validate Hermes backup off-box settings
+  assert:
+    that:
+      - hermes_backup_offbox_target | length > 0
+      - hermes_backup_offbox_target is search(':')
+      - hermes_backup_offbox_state_file is match('^/')
+      - hermes_backup_offbox_pending_file is match('^/')
+      - hermes_backup_offbox_max_age_hours | int > 0
+    fail_msg: >
+      Set hermes_backup_offbox_target to an rsync-over-SSH target such as
+      user@host:/path and set absolute off-box state/pending file paths before
+      enabling off-box backups.
+  when: hermes_backup_offbox_enabled | bool
+
+- name: Install Hermes backup off-box packages
+  apt:
+    name:
+      - openssh-client
+      - rsync
+    state: present
+  when: hermes_backup_offbox_enabled | bool
+
+- name: Install Hermes VPS operator scripts
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - src: hermes-vps.j2
+      dest: /usr/local/bin/hermes-vps
+      mode: "0755"
+    - src: hermes-vps-status.j2
+      dest: /usr/local/sbin/hermes-vps-status
+      mode: "0755"
+    - src: hermes-vps-backup.j2
+      dest: /usr/local/sbin/hermes-vps-backup
+      mode: "0755"
+    - src: hermes-vps-backup-offbox.j2
+      dest: /usr/local/sbin/hermes-vps-backup-offbox
+      mode: "0755"
+    - src: hermes-vps-release-check.j2
+      dest: /usr/local/sbin/hermes-vps-release-check
+      mode: "0755"
+    - src: hermes-vps-healthcheck.j2
+      dest: /usr/local/sbin/hermes-vps-healthcheck
+      mode: "0755"
+    - src: hermes-docker-cleanup.j2
+      dest: /usr/local/sbin/hermes-docker-cleanup
+      mode: "0755"
+
+- name: Install Hermes VPS systemd service/timer units
+  template:
+    src: "{{ item }}"
+    dest: "/etc/systemd/system/{{ item | basename | regex_replace('\\.j2$', '') }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - hermes-vps-backup.service.j2
+    - hermes-vps-backup.timer.j2
+    - hermes-docker-cleanup.service.j2
+    - hermes-docker-cleanup.timer.j2
+    - hermes-vps-release-check.service.j2
+    - hermes-vps-release-check.timer.j2
+    - hermes-vps-healthcheck.service.j2
+    - hermes-vps-healthcheck.timer.j2
+  register: vps_ops_systemd_units
+
+- name: Reload systemd when Hermes VPS units change
+  systemd:
+    daemon_reload: true
+  when: vps_ops_systemd_units.changed
+
+- name: Manage Hermes VPS timers
+  systemd:
+    name: "{{ item.name }}"
+    enabled: "{{ item.enabled | bool }}"
+    state: "{{ 'started' if (item.enabled | bool) else 'stopped' }}"
+  loop:
+    - name: hermes-vps-backup.timer
+      enabled: "{{ hermes_backup_timer_enabled | bool }}"
+    - name: hermes-docker-cleanup.timer
+      enabled: "{{ hermes_docker_cleanup_timer_enabled | bool }}"
+    - name: hermes-vps-release-check.timer
+      enabled: "{{ hermes_release_check_timer_enabled | bool }}"
+    - name: hermes-vps-healthcheck.timer
+      enabled: "{{ hermes_healthcheck_timer_enabled | bool }}"

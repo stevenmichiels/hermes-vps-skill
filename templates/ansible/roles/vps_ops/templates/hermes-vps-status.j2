@@ -3,6 +3,8 @@ set -u
 
 COMPOSE_FILE="{{ hermes_compose_file }}"
 ENV_FILE="{{ hermes_env_file }}"
+INSTALL_HERMES="{{ (install_hermes | bool) | ternary('true', 'false') }}"
+HERMES_ENABLE_SERVICE="{{ (hermes_enable_service | bool) | ternary('true', 'false') }}"
 GATEWAY_PORT="{{ hermes_gateway_port }}"
 DASHBOARD_PORT="{{ hermes_dashboard_port }}"
 DASHBOARD_ENABLED="{{ (hermes_dashboard_enabled | bool) | ternary('true', 'false') }}"
@@ -57,41 +59,49 @@ else
   fail "tailscale_not_ready"
 fi
 
-if [ -f "$COMPOSE_FILE" ]; then
-  ok "compose_file_present=$COMPOSE_FILE"
-else
-  fail "compose_file_missing=$COMPOSE_FILE"
-fi
+if [ "$INSTALL_HERMES" = "true" ]; then
+  if [ -f "$COMPOSE_FILE" ]; then
+    ok "compose_file_present=$COMPOSE_FILE"
+  else
+    fail "compose_file_missing=$COMPOSE_FILE"
+  fi
 
-if [ -f "$ENV_FILE" ]; then
-  ok "env_file_present=$ENV_FILE"
-else
-  fail "env_file_missing=$ENV_FILE"
-fi
+  if [ -f "$ENV_FILE" ]; then
+    ok "env_file_present=$ENV_FILE"
+  else
+    fail "env_file_missing=$ENV_FILE"
+  fi
 
-if [[ "$HERMES_IMAGE" == *":latest" ]]; then
-  fail "hermes_image_is_floating_latest"
-else
-  ok "hermes_image_pinned=$HERMES_IMAGE"
-fi
+  if [[ "$HERMES_IMAGE" == *":latest" ]]; then
+    fail "hermes_image_is_floating_latest"
+  else
+    ok "hermes_image_pinned=$HERMES_IMAGE"
+  fi
 
-if curl -fsS "http://127.0.0.1:${GATEWAY_PORT}/health" >/tmp/hermes-vps-health.json 2>/dev/null; then
-  ok "gateway_health=$(cat /tmp/hermes-vps-health.json)"
-else
-  fail "gateway_health_unreachable"
-fi
+  if [ "$HERMES_ENABLE_SERVICE" = "true" ]; then
+    if curl -fsS "http://127.0.0.1:${GATEWAY_PORT}/health" >/tmp/hermes-vps-health.json 2>/dev/null; then
+      ok "gateway_health=$(cat /tmp/hermes-vps-health.json)"
+    else
+      fail "gateway_health_unreachable"
+    fi
 
-bad_ports="$(ss -ltn | awk -v gp=":${GATEWAY_PORT}" -v dp=":${DASHBOARD_PORT}" -v dash="$DASHBOARD_ENABLED" '($4 ~ gp "$" || (dash == "true" && $4 ~ dp "$")) && $4 !~ /^127[.]0[.]0[.]1:/ { print $4 }')"
-if [ -z "$bad_ports" ]; then
-  ok "hermes_ports_loopback_only"
-else
-  fail "hermes_ports_exposed=$bad_ports"
-fi
+    bad_ports="$(ss -ltn | awk -v gp=":${GATEWAY_PORT}" -v dp=":${DASHBOARD_PORT}" -v dash="$DASHBOARD_ENABLED" '($4 ~ gp "$" || (dash == "true" && $4 ~ dp "$")) && $4 !~ /^127[.]0[.]0[.]1:/ { print $4 }')"
+    if [ -z "$bad_ports" ]; then
+      ok "hermes_ports_loopback_only"
+    else
+      fail "hermes_ports_exposed=$bad_ports"
+    fi
 
-if docker compose -f "$COMPOSE_FILE" ps --services --filter status=running 2>/dev/null | grep -qx hermes; then
-  ok "hermes_container_running"
+    if docker compose -f "$COMPOSE_FILE" ps --services --filter status=running 2>/dev/null | grep -qx hermes; then
+      ok "hermes_container_running"
+    else
+      fail "hermes_container_not_running"
+    fi
+  else
+    warn "hermes_service_disabled"
+  fi
 else
-  fail "hermes_container_not_running"
+  warn "hermes_app_not_installed"
 fi
 
 if [ "$INSTALL_FIRECRAWL" = "true" ]; then
@@ -224,39 +234,43 @@ if [ "$INSTALL_WINDMILL" = "true" ]; then
   fi
 fi
 
-if [ "$REQUIRE_TELEGRAM" = "true" ]; then
-  if has_env_value TELEGRAM_BOT_TOKEN; then
-    ok "telegram_bot_token_set"
-  else
-    fail "telegram_bot_token_missing"
-  fi
-fi
+if [ "$INSTALL_HERMES" = "true" ]; then
+  if [ "$HERMES_ENABLE_SERVICE" = "true" ]; then
+    if [ "$REQUIRE_TELEGRAM" = "true" ]; then
+      if has_env_value TELEGRAM_BOT_TOKEN; then
+        ok "telegram_bot_token_set"
+      else
+        fail "telegram_bot_token_missing"
+      fi
+    fi
 
-if [ "$REQUIRE_ALLOWED_USERS" = "true" ]; then
-  if has_env_value TELEGRAM_ALLOWED_USERS || has_env_value GATEWAY_ALLOWED_USERS; then
-    ok "gateway_allowed_users_set"
-  else
-    fail "gateway_allowed_users_missing"
-  fi
-fi
+    if [ "$REQUIRE_ALLOWED_USERS" = "true" ]; then
+      if has_env_value TELEGRAM_ALLOWED_USERS || has_env_value GATEWAY_ALLOWED_USERS; then
+        ok "gateway_allowed_users_set"
+      else
+        fail "gateway_allowed_users_missing"
+      fi
+    fi
 
-if has_env_value API_SERVER_KEY; then
-  ok "api_server_key_set"
-else
-  fail "api_server_key_missing"
-fi
-
-if [ -d "$HERMES_DATA_DIR" ]; then
-  mode="$(stat -c '%a' "$HERMES_DATA_DIR" 2>/dev/null || true)"
-  owner="$(stat -c '%u:%g' "$HERMES_DATA_DIR" 2>/dev/null || true)"
-  if [ "$owner" = "{{ hermes_uid }}:{{ hermes_gid }}" ]; then
-    ok "hermes_data_owner=$owner"
-  else
-    fail "hermes_data_owner_expected={{ hermes_uid }}:{{ hermes_gid }} actual=${owner:-missing}"
+    if has_env_value API_SERVER_KEY; then
+      ok "api_server_key_set"
+    else
+      fail "api_server_key_missing"
+    fi
   fi
-  [ "$mode" = "700" ] && ok "hermes_data_mode=700" || warn "hermes_data_mode=$mode"
-else
-  fail "hermes_data_dir_missing=$HERMES_DATA_DIR"
+
+  if [ -d "$HERMES_DATA_DIR" ]; then
+    mode="$(stat -c '%a' "$HERMES_DATA_DIR" 2>/dev/null || true)"
+    owner="$(stat -c '%u:%g' "$HERMES_DATA_DIR" 2>/dev/null || true)"
+    if [ "$owner" = "{{ hermes_uid }}:{{ hermes_gid }}" ]; then
+      ok "hermes_data_owner=$owner"
+    else
+      fail "hermes_data_owner_expected={{ hermes_uid }}:{{ hermes_gid }} actual=${owner:-missing}"
+    fi
+    [ "$mode" = "700" ] && ok "hermes_data_mode=700" || warn "hermes_data_mode=$mode"
+  else
+    fail "hermes_data_dir_missing=$HERMES_DATA_DIR"
+  fi
 fi
 
 if [ -e "$BACKUP_DIR/latest.tar.gz" ]; then
@@ -321,10 +335,14 @@ else
   fail "docker_cleanup_timer_not_enabled"
 fi
 
-if systemctl is-enabled --quiet hermes-vps-release-check.timer; then
-  ok "release_check_timer_enabled"
+if [ "$INSTALL_HERMES" = "true" ]; then
+  if systemctl is-enabled --quiet hermes-vps-release-check.timer; then
+    ok "release_check_timer_enabled"
+  else
+    fail "release_check_timer_not_enabled"
+  fi
 else
-  fail "release_check_timer_not_enabled"
+  warn "release_check_timer_skipped_hermes_not_installed"
 fi
 
 if systemctl is-enabled --quiet hermes-vps-healthcheck.timer; then

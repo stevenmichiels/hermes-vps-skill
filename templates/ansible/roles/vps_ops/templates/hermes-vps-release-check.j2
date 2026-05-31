@@ -3,6 +3,12 @@ set -euo pipefail
 
 CURRENT_IMAGE="{{ hermes_image }}"
 CURRENT_TAG="${CURRENT_IMAGE##*:}"
+INSTALL_HERMES="{{ (install_hermes | bool) | ternary('true', 'false') }}"
+
+if [ "$INSTALL_HERMES" != "true" ]; then
+  echo "release_check=skipped_hermes_not_installed"
+  exit 0
+fi
 
 latest_tag="$(
   curl -fsSL https://api.github.com/repos/NousResearch/hermes-agent/releases \
