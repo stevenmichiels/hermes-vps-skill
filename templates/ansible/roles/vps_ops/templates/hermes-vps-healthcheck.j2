@@ -34,15 +34,8 @@ if [ "$new_state" != "$old_state" ]; then
   }
 
   env_file="{{ vps_ops_env_file }}"
-  legacy_env_file="{{ hermes_env_file }}"
   token="$(read_env_value "$env_file" "TELEGRAM_BOT_TOKEN")"
   chat_id="$(read_env_value "$env_file" "TELEGRAM_ALLOWED_USERS|GATEWAY_ALLOWED_USERS")"
-  if [ -z "$token" ] && [ -f "$legacy_env_file" ]; then
-    token="$(read_env_value "$legacy_env_file" "TELEGRAM_BOT_TOKEN")"
-  fi
-  if [ -z "$chat_id" ] && [ -f "$legacy_env_file" ]; then
-    chat_id="$(read_env_value "$legacy_env_file" "TELEGRAM_ALLOWED_USERS|GATEWAY_ALLOWED_USERS")"
-  fi
   if [ -n "$token" ] && [ -n "$chat_id" ]; then
     text="Hermes VPS health changed: ${old_state:-unknown} -> ${new_state}"
     curl -fsS -X POST "https://api.telegram.org/bot${token}/sendMessage" \

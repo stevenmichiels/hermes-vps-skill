@@ -10,6 +10,8 @@
 - Make Hermes Agent opt-in by default (`install_hermes: false`) without losing
   status, backup, healthcheck, off-box verification, release-check, or cleanup
   operator coverage.
+- Make `/etc/hermes-vps/.env` the sole source for VPS operator Telegram health
+  alerts by removing the legacy fallback to the Hermes app env file.
 
 ## v0.4.0 - 2026-05-31
 

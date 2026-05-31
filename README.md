@@ -63,7 +63,7 @@ without printing secret values.
 `hermes-vps status` is the operator-facing source of truth. It checks the
 workbench backup state, off-box freshness, prune gate, optional n8n HTTP health,
 optional n8n container state, and optional `cloudflared` service state, with
-Telegram health alerts available for drift detection.
+Telegram health alerts loaded from `/etc/hermes-vps/.env` for drift detection.
 
 See `CHANGELOG.md` and the
 [v0.4.0 release notes](https://github.com/stevenmichiels/dual-agent-vps/releases/tag/v0.4.0)
