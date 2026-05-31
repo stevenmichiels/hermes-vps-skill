@@ -7,6 +7,9 @@ GATEWAY_PORT="{{ hermes_gateway_port }}"
 DASHBOARD_PORT="{{ hermes_dashboard_port }}"
 DASHBOARD_ENABLED="{{ (hermes_dashboard_enabled | bool) | ternary('true', 'false') }}"
 BACKUP_DIR="{{ hermes_backup_dir }}"
+BACKUP_OFFBOX_ENABLED="{{ (hermes_backup_offbox_enabled | bool) | ternary('true', 'false') }}"
+BACKUP_OFFBOX_STATE_FILE="{{ hermes_backup_offbox_state_file }}"
+BACKUP_OFFBOX_MAX_AGE_HOURS="{{ hermes_backup_offbox_max_age_hours }}"
 HERMES_IMAGE="{{ hermes_image }}"
 HERMES_DATA_DIR="{{ hermes_data_dir }}"
 REQUIRE_TELEGRAM="{{ (hermes_require_telegram | bool) | ternary('true', 'false') }}"
@@ -221,6 +224,22 @@ if [ -e "$BACKUP_DIR/latest.tar.gz" ]; then
   fi
 else
   fail "backup_latest_missing"
+fi
+
+warn "backup_retention_prune_disabled_until_offbox_copy"
+if [ "$BACKUP_OFFBOX_ENABLED" = "true" ]; then
+  if [ -f "$BACKUP_OFFBOX_STATE_FILE" ]; then
+    offbox_age="$(( ($(date +%s) - $(stat -c %Y "$BACKUP_OFFBOX_STATE_FILE")) / 3600 ))"
+    if [ "$offbox_age" -le "$BACKUP_OFFBOX_MAX_AGE_HOURS" ]; then
+      ok "backup_offbox_last_ok_age_hours=$offbox_age"
+    else
+      fail "backup_offbox_too_old_hours=$offbox_age"
+    fi
+  else
+    fail "backup_offbox_state_missing=$BACKUP_OFFBOX_STATE_FILE"
+  fi
+else
+  warn "backup_offbox_disabled"
 fi
 
 root_use="$(df -P / | awk 'NR==2 { gsub("%","",$5); print $5 }')"

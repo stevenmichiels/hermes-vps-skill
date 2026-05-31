@@ -6,7 +6,7 @@ shift || true
 
 needs_root() {
   case "$cmd" in
-    status|backup|release-check|healthcheck|docker-cleanup|timers)
+    status|backup|backup-offbox|release-check|healthcheck|docker-cleanup|timers)
       return 0
       ;;
     *)
@@ -25,6 +25,9 @@ case "$cmd" in
     ;;
   backup)
     exec /usr/local/sbin/hermes-vps-backup "$@"
+    ;;
+  backup-offbox)
+    exec /usr/local/sbin/hermes-vps-backup-offbox "$@"
     ;;
   release-check)
     exec /usr/local/sbin/hermes-vps-release-check "$@"
@@ -45,6 +48,7 @@ Usage: hermes-vps <command>
 Commands:
   status          Run the full Hermes VPS healthcheck
   backup          Create an immediate Hermes VPS backup
+  backup-offbox   Upload and verify a Hermes VPS backup off-box
   release-check   Check for a newer stable Hermes release
   healthcheck     Run status and send Telegram transition alerts
   docker-cleanup  Prune unused Docker containers/images/build cache

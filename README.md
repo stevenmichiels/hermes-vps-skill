@@ -57,6 +57,8 @@ production VPS configuration.
 - Separated VPS zones for live app runtimes, staging, operator repos, agent
   workspaces, service installs, and backups.
 - Operational checks for status, health, backups, releases, Docker cleanup, and timers.
+- Optional rsync-over-SSH off-box backup verification gate before local
+  retention pruning is re-enabled.
 - Recoverable VPS model with backups and a documented restore path.
 
 ## Architecture Overview
@@ -466,11 +468,19 @@ config files, credentials, an inspected Terraform plan, and an explicit apply.
     tunnel or Tailscale bind.
 14. Optional: enable Cloudflare Tunnel for n8n production webhooks only after
     the locally managed tunnel and credentials file exist on the VPS.
+15. Optional: configure Hermes backup off-box transport with
+    `hermes_backup_offbox_enabled` and `hermes_backup_offbox_target` only after
+    the remote rsync-over-SSH target and credentials are ready.
 
 ## Recovery Model
 
 The VPS is treated as replaceable infrastructure. Persistent state should live
 in backups, Git remotes, or explicitly documented storage paths.
+
+Local backup retention pruning is intentionally disabled until off-box
+transport is configured and verified. In that state, `hermes-vps status` warns
+with `backup_retention_prune_disabled_until_offbox_copy` and
+`backup_offbox_disabled`.
 
 If the VPS is lost, the expected recovery path is:
 
@@ -519,6 +529,7 @@ hermes-vps timers
 hermes-vps release-check
 hermes-vps healthcheck
 hermes-vps backup
+hermes-vps backup-offbox
 hermes-vps docker-cleanup
 ```
 

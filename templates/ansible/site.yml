@@ -120,6 +120,10 @@
     hermes_healthcheck_timer_enabled: true
     hermes_healthcheck_on_calendar: "*:0/5"
     hermes_monitor_state_dir: "/var/lib/hermes-vps-monitor"
+    hermes_backup_offbox_enabled: false
+    hermes_backup_offbox_target: ""
+    hermes_backup_offbox_state_file: "/var/lib/hermes-vps-monitor/last-offbox-ok"
+    hermes_backup_offbox_max_age_hours: 36
 
     # Optional private Firecrawl stack.
     firecrawl_enable_service: false
@@ -212,6 +216,7 @@
     - security
     - role: hermes
       when: install_hermes | bool
+      tags: hermes
     - role: firecrawl
       when: install_firecrawl | bool
     - role: n8n

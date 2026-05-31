@@ -52,6 +52,27 @@
       group: root
       mode: "0700"
 
+- name: Validate Hermes backup off-box settings
+  assert:
+    that:
+      - hermes_backup_offbox_target | length > 0
+      - hermes_backup_offbox_target is search(':')
+      - hermes_backup_offbox_state_file is match('^/')
+      - hermes_backup_offbox_max_age_hours | int > 0
+    fail_msg: >
+      Set hermes_backup_offbox_target to an rsync-over-SSH target such as
+      user@host:/path and set an absolute hermes_backup_offbox_state_file before
+      enabling off-box backups.
+  when: hermes_backup_offbox_enabled | bool
+
+- name: Install Hermes backup off-box packages
+  apt:
+    name:
+      - openssh-client
+      - rsync
+    state: present
+  when: hermes_backup_offbox_enabled | bool
+
 - name: Install initial Hermes env file if missing
   template:
     src: env.j2
@@ -196,6 +217,9 @@
       mode: "0755"
     - src: hermes-vps-backup.j2
       dest: /usr/local/sbin/hermes-vps-backup
+      mode: "0755"
+    - src: hermes-vps-backup-offbox.j2
+      dest: /usr/local/sbin/hermes-vps-backup-offbox
       mode: "0755"
     - src: hermes-vps-release-check.j2
       dest: /usr/local/sbin/hermes-vps-release-check

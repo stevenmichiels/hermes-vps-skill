@@ -17,7 +17,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - Optional: deploy a private Windmill stack for script, flow, and internal-tool experiments
 - Optional: install a lightweight NoMachine/XFCE remote desktop restricted to the Tailscale path
 - Support one VPS as an agent workbench for Claude Code CLI, Codex CLI, and service agents while keeping live apps, staging, repos, and agent services in separate zones
-- Provide operator commands for status, backups, release checks, health alerts, and Docker cleanup
+- Provide operator commands for status, backups, off-box backup verification, release checks, health alerts, and Docker cleanup
 
 ## Source-of-truth rule
 - Treat the official Hermes docs and upstream repo as source of truth:
@@ -371,6 +371,10 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - `hermes_runtime_skills_src_dir` (default: `templates/hermes-skills` relative to the skill template root)
 - `hermes_runtime_skills_dir` (default: `/var/lib/hermes/skills`)
 - `hermes_backup_dir` (default: `/var/backups/hermes-vps`)
+- `hermes_backup_offbox_enabled` (default: `false`; opt-in rsync-over-SSH copy and checksum verification)
+- `hermes_backup_offbox_target` (required when enabled; format `user@host:/path`)
+- `hermes_backup_offbox_state_file` (default: `/var/lib/hermes-vps-monitor/last-offbox-ok`)
+- `hermes_backup_offbox_max_age_hours` (default: `36`; status fails when the last verified off-box copy is older)
 - Timer toggles: `hermes_backup_timer_enabled`, `hermes_docker_cleanup_timer_enabled`, `hermes_release_check_timer_enabled`, `hermes_healthcheck_timer_enabled`
 - Firecrawl knobs:
   - `firecrawl_enable_service` (default: `false`)
@@ -524,6 +528,7 @@ Before Hermes env values are configured and the service is enabled, `hermes-vps 
 ## Operator commands on VPS
 - `hermes-vps status` - full local status check
 - `hermes-vps backup` - immediate backup
+- `hermes-vps backup-offbox` - upload and verify the latest backup off-box when enabled
 - `hermes-vps release-check` - check newer stable Hermes release, no auto-upgrade
 - `hermes-vps healthcheck` - status check plus Telegram transition alert when configured
 - `hermes-vps docker-cleanup` - prune unused Docker artifacts without pruning volumes
@@ -569,6 +574,7 @@ Before Hermes env values are configured and the service is enabled, `hermes-vps 
   - `sudo docker compose --env-file /etc/windmill/.env -f /etc/windmill/docker-compose.yml ps`
 - Backup and restore evidence:
   - `sudo hermes-vps backup`
+  - `sudo hermes-vps backup-offbox` should report disabled until `hermes_backup_offbox_enabled=true`; when enabled, it must upload and checksum-verify the archive.
   - `sudo tar -tzf /var/backups/hermes-vps/latest.tar.gz | grep -E '^(etc/hermes|var/lib/hermes|etc/firecrawl|etc/n8n|var/lib/n8n|etc/windmill|var/lib/windmill)' | head`
 - Terraform safety before infra changes:
   - run `hctf -chdir=templates/infra plan -input=false`

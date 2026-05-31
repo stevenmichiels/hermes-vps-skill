@@ -4,6 +4,7 @@ umask 077
 
 BACKUP_DIR="{{ hermes_backup_dir }}"
 RETENTION_DAYS="{{ hermes_backup_retention_days }}"
+OFFBOX_ENABLED="{{ (hermes_backup_offbox_enabled | bool) | ternary('true', 'false') }}"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 ARCHIVE="${BACKUP_DIR}/hermes-vps-${STAMP}.tar.gz"
 TMP_ARCHIVE="${ARCHIVE}.tmp"
@@ -46,6 +47,10 @@ tar \
 chmod 0600 "$TMP_ARCHIVE"
 mv "$TMP_ARCHIVE" "$ARCHIVE"
 ln -sfn "$(basename "$ARCHIVE")" "${BACKUP_DIR}/latest.tar.gz"
+
+if [ "$OFFBOX_ENABLED" = "true" ]; then
+  /usr/local/sbin/hermes-vps-backup-offbox "$ARCHIVE"
+fi
 
 printf 'backup_created=%s\n' "$ARCHIVE"
 printf 'backup_retention_prune=disabled_until_offbox_copy\n'

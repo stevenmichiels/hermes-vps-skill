@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+
+BACKUP_DIR="{{ hermes_backup_dir }}"
+OFFBOX_ENABLED="{{ (hermes_backup_offbox_enabled | bool) | ternary('true', 'false') }}"
+OFFBOX_TARGET="{{ hermes_backup_offbox_target }}"
+STATE_FILE="{{ hermes_backup_offbox_state_file }}"
+
+quote_remote() {
+  printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+
+if [ "$OFFBOX_ENABLED" != "true" ]; then
+  printf 'backup_offbox_enabled=false\n'
+  exit 0
+fi
+
+if [[ ! "$OFFBOX_TARGET" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9._-]+:/[A-Za-z0-9._~/%+=:,@-]*$ ]]; then
+  echo "hermes_backup_offbox_target must look like user@host:/path and use shell-safe path characters" >&2
+  exit 2
+fi
+
+archive="${1:-}"
+if [ -z "$archive" ]; then
+  archive="$(readlink -f "${BACKUP_DIR}/latest.tar.gz")"
+fi
+
+if [ ! -f "$archive" ]; then
+  echo "Backup archive not found: $archive" >&2
+  exit 2
+fi
+
+remote="${OFFBOX_TARGET%%:*}"
+remote_dir="${OFFBOX_TARGET#*:}"
+remote_dir="${remote_dir%/}"
+base="$(basename "$archive")"
+local_sha="$(sha256sum "$archive" | awk '{print $1}')"
+
+remote_dir_q="$(quote_remote "$remote_dir")"
+base_q="$(quote_remote "$base")"
+
+ssh "$remote" "mkdir -p $remote_dir_q"
+rsync -az --checksum "$archive" "${remote}:${remote_dir}/"
+remote_sha="$(ssh "$remote" "cd $remote_dir_q && sha256sum $base_q" | awk '{print $1}')"
+
+if [ "$local_sha" != "$remote_sha" ]; then
+  printf 'checksum_mismatch local=%s remote=%s archive=%s\n' "$local_sha" "$remote_sha" "$base" >&2
+  exit 1
+fi
+
+state_dir="$(dirname "$STATE_FILE")"
+mkdir -p "$state_dir"
+tmp_state="$(mktemp "${state_dir}/last-offbox-ok.XXXXXX")"
+{
+  printf 'timestamp=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  printf 'archive=%s\n' "$archive"
+  printf 'sha256=%s\n' "$local_sha"
+  printf 'target=%s\n' "$OFFBOX_TARGET"
+} > "$tmp_state"
+chmod 0600 "$tmp_state"
+mv "$tmp_state" "$STATE_FILE"
+
+printf 'backup_offbox_uploaded=%s\n' "$base"
+printf 'backup_offbox_verified_sha256=%s\n' "$local_sha"
+printf 'backup_offbox_state_file=%s\n' "$STATE_FILE"
