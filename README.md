@@ -29,6 +29,26 @@ For humans reviewing or adapting the setup, start here.
 This repository is a sanitized deployment template, not a copy of a live
 production VPS configuration.
 
+## Current Readiness Model
+
+The intended production-ready n8n posture is public-webhook-only: Cloudflare
+Tunnel may expose a hostname for production webhook traffic, but only
+`/webhook/*` should reach loopback-bound n8n. The editor, REST API, sign-in
+routes, SSH, raw VPS ports, and SQLite database stay private behind
+SSH/Tailscale and host-local paths.
+
+The backup chain is designed as a closed loop: n8n SQLite is backed up online,
+included in age-encrypted Hermes backup artifacts, copied off-box with
+rsync-over-SSH, verified end-to-end with SHA-256, and only then allowed to
+reenable local retention pruning. Restore is not just documented; the runbook
+includes isolated checks for database integrity and decrypted n8n credentials
+without printing secret values.
+
+`hermes-vps status` is the operator-facing source of truth. It checks the
+Hermes backup state, off-box freshness, prune gate, optional n8n HTTP health,
+optional n8n container state, and optional `cloudflared` service state, with
+Telegram health alerts available for drift detection.
+
 ## Before You Fork or Use This
 
 - Read `SKILL.md` before running Terraform or Ansible.
@@ -56,11 +76,13 @@ production VPS configuration.
 - Optional NoMachine/XFCE remote desktop restricted to the Tailscale access boundary.
 - Separated VPS zones for live app runtimes, staging, operator repos, agent
   workspaces, service installs, and backups.
-- Operational checks for status, health, backups, releases, Docker cleanup,
-  timers, optional n8n, and optional Cloudflare Tunnel.
+- One-command status checks for health, backups, off-box freshness, guarded
+  pruning, releases, Docker cleanup, timers, optional n8n, and optional
+  Cloudflare Tunnel.
 - Optional rsync-over-SSH off-box backup verification gate before local
   retention pruning is re-enabled.
-- Recoverable VPS model with backups and a documented restore path.
+- Recoverable VPS model with encrypted backups and a restore path that proves
+  n8n database integrity plus credential decryption in isolation.
 
 ## Architecture Overview
 
@@ -81,6 +103,7 @@ Hetzner VPS
 |-- optional private Firecrawl stack
 |-- optional private n8n stack
 |-- optional cloudflared tunnel for n8n /webhook/ only
+|-- optional encrypted off-box backup target verification
 |-- /home/<admin_user>/repos and agent-workspaces
 `-- /var/backups/hermes-vps backups
 ```
@@ -117,9 +140,12 @@ reviewable, and reversible.
 - SSH guardrails: narrow bootstrap access first, then Tailscale-only SSH.
 - Private-by-default Hermes gateway/dashboard, Firecrawl API, and n8n binds.
 - Secret-safe runtime setup with placeholder env templates and explicit "do not commit" rules.
-- One-command operator checks through `hermes-vps status`.
+- One-command operator checks through `hermes-vps status`, including optional
+  n8n health/container and `cloudflared` service checks when those services
+  are enabled.
 - Scheduled backups, Docker cleanup, stable release checks, and health transition alerts.
-- Restore runbook for a fresh VPS rebuild from backup.
+- Restore runbook for a fresh VPS rebuild from backup, including isolated n8n
+  SQLite and credential-decrypt proof steps.
 - Source-controlled Hermes runtime skill templates, including a private Firecrawl workflow skill.
 - Managed parent directories for co-hosting Claude Code CLI, Codex CLI, OpenClaw,
   Hermes, repos, app runtimes, and backups without mixing them into one

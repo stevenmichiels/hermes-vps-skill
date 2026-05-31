@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Clarify the README with the current public-webhook-only n8n posture,
+  encrypted off-box backup chain, guarded prune gate, restore proof, and
+  `hermes-vps status` readiness surface.
 - Document that controller-local Cloudflare tunnel credentials should be hidden
   from agent reads with local Codex/Claude deny or exclude rules before
   `cloudflared tunnel login`.
