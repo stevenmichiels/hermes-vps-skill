@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Document Ubuntu Pro / ESM Apps as an optional manual host-maintenance step,
+  including pre-backup, token-handling, update, reboot, and post-healthcheck
+  guidance.
+
 ## v1.0.0 - 2026-05-31
 
 v1.0.0 marks the first deployment-ready shape of `dual-agent-vps` as a private

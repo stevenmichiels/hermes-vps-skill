@@ -538,6 +538,30 @@ Before optional agent gateway env values are configured and the service is enabl
 - `hermes-vps docker-cleanup` - prune unused Docker artifacts without pruning volumes
 - `hermes-vps timers` - list installed timers
 
+## Optional Ubuntu Pro / ESM Apps
+- Treat Ubuntu Pro / ESM Apps as a manual host-maintenance step, not an Ansible default or public template variable.
+- Do not store the Ubuntu Pro token in Ansible vars, Terraform vars, committed files, shell exports, screenshots, support bundles, or chat logs.
+- Recommended VPS-side flow:
+  ```bash
+  sudo hermes-vps status
+  sudo hermes-vps backup
+
+  read -rsp "Ubuntu Pro token: " UBUNTU_PRO_TOKEN; echo
+  sudo pro attach "$UBUNTU_PRO_TOKEN"
+  unset UBUNTU_PRO_TOKEN
+
+  pro status
+  sudo apt update
+  sudo apt upgrade
+  pro security-status --esm-apps
+  sudo hermes-vps status
+  sudo hermes-vps healthcheck
+
+  if [ -f /var/run/reboot-required ]; then cat /var/run/reboot-required; else echo no; fi
+  ```
+- Reboot only when `/var/run/reboot-required` exists, then rerun `sudo hermes-vps status` and `sudo hermes-vps healthcheck`.
+- If a token is pasted into chat, screenshots, logs, or support artifacts, tell Steven to revoke or rotate it in the Ubuntu Pro dashboard.
+
 ## Validation checklist
 - Overall status:
   - `sudo hermes-vps status`

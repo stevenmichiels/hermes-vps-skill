@@ -594,6 +594,39 @@ hermes-vps backup-offbox
 hermes-vps docker-cleanup
 ```
 
+## Optional Ubuntu Pro / ESM Apps
+
+Ubuntu Pro / ESM Apps is an optional manual host-maintenance step for personal
+VPS hosts. It can provide extra security updates for installed
+Universe/Multiverse packages such as Docker, GitHub CLI, ffmpeg, and Python
+packaging tools. Do not put the Ubuntu Pro token in Ansible vars, Terraform
+vars, committed files, support bundles, screenshots, or chat logs.
+
+Recommended VPS-side flow:
+
+```sh
+sudo hermes-vps status
+sudo hermes-vps backup
+
+read -rsp "Ubuntu Pro token: " UBUNTU_PRO_TOKEN; echo
+sudo pro attach "$UBUNTU_PRO_TOKEN"
+unset UBUNTU_PRO_TOKEN
+
+pro status
+sudo apt update
+sudo apt upgrade
+pro security-status --esm-apps
+sudo hermes-vps status
+sudo hermes-vps healthcheck
+
+if [ -f /var/run/reboot-required ]; then cat /var/run/reboot-required; else echo no; fi
+```
+
+Reboot only when `/var/run/reboot-required` exists, then rerun
+`sudo hermes-vps status` and `sudo hermes-vps healthcheck`. If a Pro token is
+pasted into chat, screenshots, logs, or support artifacts, revoke or rotate it
+in the Ubuntu Pro dashboard.
+
 ## Termius Access
 
 Do not open public SSH just for Termius. Use normal OpenSSH over the Tailscale
