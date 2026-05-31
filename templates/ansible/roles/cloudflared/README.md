@@ -166,6 +166,8 @@ enabled.
 The tunnel role does not manage Cloudflare WAF rules. Configure this manually
 in the Cloudflare dashboard so edge policy stays visible to the account owner
 and is not hidden in the VPS Ansible run.
+Cloudflare documents this feature as WAF rate limiting rules:
+https://developers.cloudflare.com/waf/rate-limiting-rules/
 
 Recommended starting rule:
 
@@ -173,10 +175,12 @@ Recommended starting rule:
 - Scope: the zone that owns `cloudflared_hostname`.
 - Expression: `starts_with(http.request.uri.path, "/webhook/")`
 - Counting characteristic: IP.
-- Threshold: 60 requests per 60 seconds.
+- Period: 60 seconds.
+- Requests per period: 60.
 - Action: Managed Challenge for the first rollout; switch to Block after
   observing legitimate webhook traffic.
-- Mitigation timeout: 10 minutes.
+- Duration/mitigation timeout: start with 10 minutes when the selected action
+  and Cloudflare plan expose that field; otherwise use the dashboard default.
 
 Keep the rule scoped to `/webhook/`. Do not rate-limit `/webhook-test/`,
 `/webhook-waiting/`, `/rest/*`, or the editor/API in this public hostname

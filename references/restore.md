@@ -180,7 +180,7 @@ Prerequisites:
   `n8n_sqlite_backup_age_recipient`; do not create a second backup recipient
   variable for this path.
 
-Cold backup flow:
+Cold backup flow (run with Bash):
 
 ```sh
 set -euo pipefail
@@ -188,14 +188,20 @@ set -euo pipefail
 recipient="<n8n_sqlite_backup_age_recipient>"
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 out="/var/backups/n8n/hermes-n8n-cold-full-${stamp}.tar.gz.age"
+backup_paths=(/etc/n8n /var/lib/n8n)
+
+if [ -d /etc/cloudflared ]; then
+  backup_paths+=(/etc/cloudflared)
+fi
 
 restart_n8n() {
   sudo docker compose -f /etc/n8n/docker-compose.yml up -d >/dev/null
 }
 trap restart_n8n EXIT
 
+sudo mkdir -p /var/backups/n8n
 sudo docker compose -f /etc/n8n/docker-compose.yml stop n8n
-sudo tar -czf - /etc/n8n /var/lib/n8n /etc/cloudflared \
+sudo tar -czf - "${backup_paths[@]}" \
   | age -r "$recipient" \
   | sudo tee "$out.tmp" >/dev/null
 sudo mv "$out.tmp" "$out"
