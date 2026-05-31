@@ -29,6 +29,8 @@
   target, such as a Mac over Tailscale, does not discard the local archive.
 - Restore Hermes backup retention pruning only when a fresh verified off-box
   state file exists.
+- Document a manual Cloudflare WAF rate-limit rule for n8n `/webhook/` ingress
+  and a cold full-backup runbook for pre-upgrade n8n safety.
 - Extend `hermes-vps status` with gated n8n health/container checks and a
   gated `cloudflared` service-active check.
 - Document n8n encrypted SQLite restore dry runs, live restore steps, and a

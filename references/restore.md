@@ -167,6 +167,48 @@ docker rm -f n8n-restore-dryrun
 rm -rf "$restore_dir"
 ```
 
+## n8n Cold Full Backup
+
+Use this before n8n image upgrades, schema-sensitive changes, or any operation
+where a complete file-level rollback is useful. This is a manual safety-net,
+not a replacement for the online SQLite backup.
+
+Prerequisites:
+
+- `age` installed on the VPS.
+- `recipient` set to the same public key used by
+  `n8n_sqlite_backup_age_recipient`; do not create a second backup recipient
+  variable for this path.
+
+Cold backup flow:
+
+```sh
+set -euo pipefail
+
+recipient="<n8n_sqlite_backup_age_recipient>"
+stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+out="/var/backups/n8n/hermes-n8n-cold-full-${stamp}.tar.gz.age"
+
+restart_n8n() {
+  sudo docker compose -f /etc/n8n/docker-compose.yml up -d >/dev/null
+}
+trap restart_n8n EXIT
+
+sudo docker compose -f /etc/n8n/docker-compose.yml stop n8n
+sudo tar -czf - /etc/n8n /var/lib/n8n /etc/cloudflared \
+  | age -r "$recipient" \
+  | sudo tee "$out.tmp" >/dev/null
+sudo mv "$out.tmp" "$out"
+sudo chmod 0600 "$out"
+
+trap - EXIT
+restart_n8n
+printf 'n8n_cold_backup=%s\n' "$out"
+```
+
+Validate by decrypting with the corresponding local age identity and listing
+archive paths only. Do not print restored env files or credential material.
+
 ## n8n Live Restore
 
 Use only after a successful dry run.

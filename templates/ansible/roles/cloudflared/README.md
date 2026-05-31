@@ -160,3 +160,24 @@ cloudflared tunnel ingress rule "https://n8n.<domain>/rest/oauth2-credential/cal
 Steady state should route only `/webhook/...` to n8n. Everything else should
 hit `http_status:404` unless a temporary onboarding route is deliberately
 enabled.
+
+## Manual Cloudflare WAF Rate Limit
+
+The tunnel role does not manage Cloudflare WAF rules. Configure this manually
+in the Cloudflare dashboard so edge policy stays visible to the account owner
+and is not hidden in the VPS Ansible run.
+
+Recommended starting rule:
+
+- Product area: WAF rate limiting rules.
+- Scope: the zone that owns `cloudflared_hostname`.
+- Expression: `starts_with(http.request.uri.path, "/webhook/")`
+- Counting characteristic: IP.
+- Threshold: 60 requests per 60 seconds.
+- Action: Managed Challenge for the first rollout; switch to Block after
+  observing legitimate webhook traffic.
+- Mitigation timeout: 10 minutes.
+
+Keep the rule scoped to `/webhook/`. Do not rate-limit `/webhook-test/`,
+`/webhook-waiting/`, `/rest/*`, or the editor/API in this public hostname
+pattern because those routes should normally stay closed at tunnel ingress.
