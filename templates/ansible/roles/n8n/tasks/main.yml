@@ -20,6 +20,14 @@
       n8n_public_hostname must be a hostname without scheme/path, and
       n8n_webhook_url must be an https:// URL ending in /.
 
+- name: Validate n8n image pin
+  assert:
+    that:
+      - n8n_image is search('@sha256:')
+      - "'__SET_ME__' not in n8n_image"
+    fail_msg: >
+      Set n8n_image to a digest-pinned image reference before installing n8n.
+
 - name: Install n8n container runtime packages
   apt:
     name:

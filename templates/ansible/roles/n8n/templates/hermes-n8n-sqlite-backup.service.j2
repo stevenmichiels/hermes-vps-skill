@@ -5,4 +5,5 @@ After=docker.service
 
 [Service]
 Type=oneshot
+User=root
 ExecStart={{ n8n_sqlite_backup_script_path }}

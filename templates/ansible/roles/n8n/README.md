@@ -7,6 +7,8 @@ Optional private-by-default n8n deployment for Hermes VPS.
 - Disabled by default in `templates/ansible/site.yml` with `install_n8n: false`.
 - Service start is also disabled by default with `n8n_enable_service: false`.
 - Host bind defaults to `127.0.0.1:5678`.
+- The n8n image default is digest-pinned. Override `n8n_image` only with
+  another `@sha256:` reference.
 - n8n data persists under `/var/lib/n8n/data`.
 - Local files for n8n workflows persist under `/var/lib/n8n/files` and mount as `/files`.
 - `/etc/n8n/.env` is created on the VPS if missing and is never overwritten by Ansible.
@@ -85,4 +87,8 @@ Do this as a separate change:
   - `n8n_secure_cookie`
 - Leave `N8N_SECURE_COOKIE=false` when the editor is reached through plain `http://127.0.0.1:5678` over SSH/Tailscale.
 - Enable `n8n_sqlite_backup_enabled` only after setting an age recipient and a pinned SQLite sidecar image digest.
+- Online SQLite backups include the SQLite backup, `/etc/n8n`, and
+  `/etc/cloudflared` by default. They exclude `/var/lib/n8n/files` unless
+  `n8n_sqlite_backup_include_binary_data=true`; use the cold full-backup runbook
+  before image upgrades or when local binary data matters.
 - Use webhook-level auth for any workflow with side effects.

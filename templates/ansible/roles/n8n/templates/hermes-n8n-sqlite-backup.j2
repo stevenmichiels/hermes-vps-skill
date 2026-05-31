@@ -7,6 +7,7 @@ BACKUP_DIR="{{ n8n_sqlite_backup_dir }}"
 TMP_DB="${N8N_DATA_DIR}/database-backup-${BACKUP_DATE}.sqlite"
 OUT="${BACKUP_DIR}/hermes-n8n-sqlite-online-${BACKUP_DATE}.tar.gz.age"
 SQLITE_IMAGE="{{ n8n_sqlite_backup_sqlite_image }}"
+INCLUDE_BINARY_DATA="{{ (n8n_sqlite_backup_include_binary_data | bool) | ternary('true', 'false') }}"
 
 cleanup() {
   rm -f "$TMP_DB" "$OUT.tmp"
@@ -31,10 +32,20 @@ INTEGRITY_RESULT="$(
 
 printf '%s\n' "$INTEGRITY_RESULT" | grep -qx 'ok'
 
-tar -czf - \
-  "$TMP_DB" \
-  "{{ n8n_env_dir }}" \
-  "{{ cloudflared_config_dir | default('/etc/cloudflared') }}" \
+backup_paths=(
+  "$TMP_DB"
+  "{{ n8n_env_dir }}"
+  "{{ cloudflared_config_dir | default('/etc/cloudflared') }}"
+)
+
+# n8n binary data and workflow files live under {{ n8n_data_dir }}/files.
+# Keep online SQLite backups small by default; use the cold full-backup runbook
+# or set n8n_sqlite_backup_include_binary_data=true when those files matter.
+if [ "$INCLUDE_BINARY_DATA" = "true" ]; then
+  backup_paths+=("{{ n8n_data_dir }}/files")
+fi
+
+tar -czf - "${backup_paths[@]}" \
   | age -r "{{ n8n_sqlite_backup_age_recipient }}" \
   | tee "$OUT.tmp" > /dev/null
 mv "$OUT.tmp" "$OUT"

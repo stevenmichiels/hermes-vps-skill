@@ -214,8 +214,8 @@ services.
   Firecrawl's self-host stack can move across multiple coordinated images. Pin
   them in `templates/ansible/vars/local.yml` before production use if you need
   reproducible rollouts.
-- Optional n8n defaults to a pinned Docker image tag and refuses to start until
-  `N8N_ENCRYPTION_KEY` is set in `/etc/n8n/.env` on the VPS.
+- Optional n8n defaults to a digest-pinned Docker image and refuses to start
+  until `N8N_ENCRYPTION_KEY` is set in `/etc/n8n/.env` on the VPS.
 - Optional Cloudflare Tunnel support assumes a locally managed tunnel and
   credentials JSON created by the operator. The template does not store
   tunnel tokens or credentials in Git.

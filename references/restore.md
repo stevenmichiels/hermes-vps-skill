@@ -132,7 +132,7 @@ docker run -d --name n8n-restore-dryrun \
   -p 127.0.0.1:15678:5678 \
   -v "$restore_dir/runtime/data:/home/node/.n8n" \
   -v "$restore_dir/runtime/files:/files" \
-  docker.n8n.io/n8nio/n8n:2.21.7
+  docker.n8n.io/n8nio/n8n@sha256:9f1f8e4c093c9924338bd168e3f813f746041d13b337753af0dbdd329e7b50f7
 ```
 
 6. Validate:

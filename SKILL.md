@@ -395,9 +395,9 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
   - `n8n_data_dir`, `n8n_compose_file` (defaults: `/var/lib/n8n`, `/etc/n8n/docker-compose.yml`)
   - `n8n_bind_address` (default: `127.0.0.1`; may be a Tailscale `100.64.0.0/10` address)
   - `n8n_host_port` (default: `5678`)
-  - `n8n_image` (default pinned tag: `docker.n8n.io/n8nio/n8n:2.21.7`)
+  - `n8n_image` (default digest-pinned n8n 2.21.7 image)
   - `n8n_public_hostname`, `n8n_webhook_url`, `n8n_editor_base_url`, `n8n_proxy_hops`, `n8n_secure_cookie`
-  - `n8n_sqlite_backup_enabled`, `n8n_sqlite_backup_timer_enabled`, `n8n_sqlite_backup_age_recipient`, `n8n_sqlite_backup_sqlite_image`
+  - `n8n_sqlite_backup_enabled`, `n8n_sqlite_backup_timer_enabled`, `n8n_sqlite_backup_age_recipient`, `n8n_sqlite_backup_sqlite_image`, `n8n_sqlite_backup_include_binary_data`
 - Cloudflare Tunnel knobs:
   - `install_cloudflared` (default: `false`; optional locally managed Cloudflare Tunnel)
   - `cloudflared_enable_service` (default: `false`)

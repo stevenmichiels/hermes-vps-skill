@@ -1,5 +1,5 @@
 n8n_enable_service: false
-n8n_image: "docker.n8n.io/n8nio/n8n:2.21.7"
+n8n_image: "docker.n8n.io/n8nio/n8n@sha256:9f1f8e4c093c9924338bd168e3f813f746041d13b337753af0dbdd329e7b50f7"
 n8n_timezone: "Europe/Brussels"
 
 n8n_env_dir: "/etc/n8n"
@@ -27,4 +27,5 @@ n8n_sqlite_backup_script_path: "/usr/local/sbin/hermes-n8n-sqlite-backup"
 n8n_sqlite_backup_dir: "/var/backups/n8n"
 n8n_sqlite_backup_age_recipient: ""
 n8n_sqlite_backup_sqlite_image: "keinos/sqlite3@sha256:__SET_ME__"
+n8n_sqlite_backup_include_binary_data: false
 n8n_sqlite_backup_on_calendar: "daily"

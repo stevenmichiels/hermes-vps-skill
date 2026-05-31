@@ -60,6 +60,7 @@ firecrawl_enable_service: false
 # the VPS, never in this local vars file.
 install_n8n: false
 n8n_enable_service: false
+n8n_image: "docker.n8n.io/n8nio/n8n@sha256:<pinned-digest>"
 n8n_bind_address: "127.0.0.1"
 n8n_public_hostname: ""
 n8n_editor_base_url: "http://127.0.0.1:5678/"
@@ -69,6 +70,7 @@ n8n_sqlite_backup_enabled: false
 n8n_sqlite_backup_timer_enabled: false
 n8n_sqlite_backup_age_recipient: ""
 n8n_sqlite_backup_sqlite_image: "keinos/sqlite3@sha256:<pinned-digest>"
+n8n_sqlite_backup_include_binary_data: false
 
 # Optional Cloudflare Tunnel for n8n public production webhooks only. Keep the
 # tunnel locally managed: create it with cloudflared, store credentials on the

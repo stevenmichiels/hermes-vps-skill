@@ -33,6 +33,9 @@
   state file exists.
 - Document a manual Cloudflare WAF rate-limit rule for n8n `/webhook/` ingress
   and a cold full-backup runbook for pre-upgrade n8n safety.
+- Tighten n8n templates with a digest-pinned image default, explicit container
+  user, explicit backup service user, and an opt-in binary-data inclusion flag
+  for online SQLite backups.
 - Extend `hermes-vps status` with gated n8n health/container checks and a
   gated `cloudflared` service-active check.
 - Document n8n encrypted SQLite restore dry runs, live restore steps, and a
