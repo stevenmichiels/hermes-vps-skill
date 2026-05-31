@@ -29,6 +29,18 @@ For humans reviewing or adapting the setup, start here.
 This repository is a sanitized deployment template, not a copy of a live
 production VPS configuration.
 
+## Recommended First Path
+
+Start with the private headless workbench and add optional services only when
+you need them:
+
+1. Provision the VPS with Terraform.
+2. Apply the base Ansible hardening.
+3. Verify SSH/Tailscale access and `hermes-vps status`.
+4. Add Hermes, Codex/Claude helpers, Firecrawl, n8n, or NoMachine only when
+   needed.
+5. Expose only production webhooks through Cloudflare Tunnel.
+
 ## Current Readiness Model
 
 The intended production-ready n8n posture is public-webhook-only: Cloudflare
@@ -48,6 +60,10 @@ without printing secret values.
 Hermes backup state, off-box freshness, prune gate, optional n8n HTTP health,
 optional n8n container state, and optional `cloudflared` service state, with
 Telegram health alerts available for drift detection.
+
+See `CHANGELOG.md` and the
+[v0.4.0 release notes](https://github.com/stevenmichiels/dual-agent-vps/releases/tag/v0.4.0)
+for the public-webhook/private-editor n8n milestone.
 
 ## Before You Fork or Use This
 
