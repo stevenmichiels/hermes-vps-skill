@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.4.0 - 2026-05-31
+
+v0.4.0 closes the n8n public-webhook/private-editor deployment path for
+personal workloads. It adds webhook-only Cloudflare Tunnel ingress, private n8n
+runtime defaults, encrypted online SQLite backups, off-box backup verification,
+guarded local pruning, restore/decrypt proof, expanded status monitoring, and
+the remaining WAF/cold-backup/operator documentation.
+
 - Clarify the README with the current public-webhook-only n8n posture,
   encrypted off-box backup chain, guarded prune gate, restore proof, and
   `hermes-vps status` readiness surface.
@@ -45,6 +53,14 @@
   `/etc/n8n/.env` without overwriting it, and refuses to start until
   `N8N_ENCRYPTION_KEY` is set on the VPS. Include `/etc/n8n` and
   `/var/lib/n8n` in Hermes backups when present.
+
+Validation:
+
+- `ansible-playbook -i inventory.ini.example site.yml --syntax-check`
+- `git diff --check`
+- `docker manifest inspect docker.n8n.io/n8nio/n8n@sha256:9f1f8e4c093c9924338bd168e3f813f746041d13b337753af0dbdd329e7b50f7`
+- Public-clean scan for private domains, Tailscale IPs, age keys, private-key
+  headers, and non-placeholder n8n encryption keys.
 
 ## v0.3.5 - 2026-05-22
 
