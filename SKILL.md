@@ -1,9 +1,9 @@
 ---
 name: hermes-vps
-description: Provision and harden a Hetzner VPS with Terraform and Ansible as a private AI-agent workbench for Hermes Agent, optional Firecrawl, optional n8n, optional Windmill, Claude Code CLI, Codex CLI, and service agents, with strict SSH/firewall guardrails, secret-safe env management, backups, health checks, and repeatable service lifecycle steps.
+description: Provision and harden a Hetzner VPS with Terraform and Ansible as a private AI-agent and automation workbench, with optional Hermes Agent, Firecrawl, n8n, Windmill, Claude Code CLI, Codex CLI, and service-agent profiles, plus strict SSH/firewall guardrails, secret-safe env management, backups, health checks, and repeatable service lifecycle steps.
 ---
 
-# SKILL: hermes-vps (Hetzner + Terraform + Ansible + Hermes Agent)
+# SKILL: hermes-vps (Hetzner + Terraform + Ansible private workbench)
 
 ## Purpose
 Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workflow:
@@ -11,7 +11,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - Ansible: base config + security (UFW + fail2ban + unattended-upgrades)
 - Baseline tools: Docker, Docker Compose v2, jq, gh, ffmpeg, screen, Python 3/pipx
 - Python operator tooling: uv/uvx installed system-wide by default; Poetry remains project-specific compatibility, not a VPS baseline
-- Deploy Hermes Agent as a Docker Compose gateway on a non-root data directory
+- Optional: deploy Hermes Agent as a Docker Compose gateway on a non-root data directory
 - Optional: deploy a private Firecrawl self-host stack for crawl/scrape/PDF extraction workflows
 - Optional: deploy a private n8n stack for workflow automation experiments
 - Optional: deploy a private Windmill stack for script, flow, and internal-tool experiments
@@ -20,7 +20,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - Provide operator commands for status, backups, off-box backup verification, release checks, health alerts, and Docker cleanup
 
 ## Source-of-truth rule
-- Treat the official Hermes docs and upstream repo as source of truth:
+- For the optional Hermes role, treat the official Hermes docs and upstream repo as source of truth:
   - https://hermes-agent.nousresearch.com/
   - https://github.com/NousResearch/hermes-agent
 - If this skill drifts from upstream Hermes semantics, update templates before deploy.
@@ -49,7 +49,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
    - active `.codex/plan/HERMES-*.md` files, if present
    - `hermes-vps/templates/infra/*`
    - `hermes-vps/templates/ansible/site.yml`
-   - `hermes-vps/templates/ansible/roles/hermes/*`
+   - relevant role files under `hermes-vps/templates/ansible/roles/*`
 3) Confirm whether change is Terraform, Ansible, or both.
 4) Execute the smallest safe change first, then validate with concrete health checks.
 

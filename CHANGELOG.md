@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Clarify that the base private workbench is the center of the project, with
+  Hermes Agent as a first-class optional app profile rather than the default
+  conceptual center.
+
 ## v0.4.0 - 2026-05-31
 
 v0.4.0 closes the n8n public-webhook/private-editor deployment path for
