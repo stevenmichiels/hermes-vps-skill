@@ -128,6 +128,7 @@
     owner: root
     group: "{{ cloudflared_group }}"
     mode: "0640"
+  register: cloudflared_config_template
 
 - name: Install cloudflared systemd service
   template:
@@ -147,4 +148,9 @@
   systemd:
     name: cloudflared
     enabled: "{{ cloudflared_enable_service | bool }}"
-    state: "{{ (cloudflared_enable_service | bool) | ternary('started', 'stopped') }}"
+    state: >-
+      {{ 'stopped' if not (cloudflared_enable_service | bool) else
+         'restarted' if (
+           (cloudflared_config_template.changed | default(false)) or
+           (cloudflared_service_template.changed | default(false))
+         ) else 'started' }}

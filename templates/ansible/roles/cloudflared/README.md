@@ -25,6 +25,9 @@ The role installs the Cloudflare apt signing key and repository, then installs
 the `cloudflared` package. The service still refuses to start until the tunnel
 credentials JSON is already present on the VPS.
 
+When `cloudflared_enable_service` is true, a rendered config or systemd unit
+change restarts `cloudflared` so route updates take effect immediately.
+
 ## Bootstrap shape
 
 Use a locally managed tunnel. No Cloudflare API token is needed for this path.
