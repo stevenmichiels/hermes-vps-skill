@@ -26,6 +26,8 @@
   target, such as a Mac over Tailscale, does not discard the local archive.
 - Restore Hermes backup retention pruning only when a fresh verified off-box
   state file exists.
+- Document n8n encrypted SQLite restore dry runs, live restore steps, and the
+  remaining disposable-credential proof needed before storing real credentials.
 - Add an opt-in private n8n role that is disabled by default, binds to loopback
   or an explicit Tailscale IP only, persists `/var/lib/n8n`, creates
   `/etc/n8n/.env` without overwriting it, and refuses to start until

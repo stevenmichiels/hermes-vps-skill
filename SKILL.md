@@ -698,3 +698,6 @@ Before Hermes env values are configured and the service is enabled, `hermes-vps 
 
 ## Restore
 For recovery from a fresh VPS, read `references/restore.md`.
+For n8n, prove the encrypted SQLite restore path in an isolated container before
+storing real credentials; a backup with zero credentials does not prove
+credential decryption.

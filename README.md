@@ -429,8 +429,9 @@ Example values are intentionally generic. Replace them with your own values loca
 Keep real secrets and private deployment details out of committed files.
 Provider tokens and bot/API keys belong in secure shell/env storage or on the
 VPS in `/var/lib/hermes/.env`, `/etc/firecrawl/firecrawl.env`, and
-`/etc/n8n/.env`. Do not include runtime env files in unencrypted backups, logs,
-or support bundles.
+`/etc/n8n/.env`. Do not include runtime env files in logs or support bundles.
+When backups include runtime env files, keep them encrypted or confined to a
+trusted off-box target.
 
 ## Safe Review Path
 
