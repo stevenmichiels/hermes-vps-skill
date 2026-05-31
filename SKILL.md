@@ -423,9 +423,12 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
   ```bash
   cloudflared tunnel login
   cloudflared tunnel create hermes-n8n
-  cloudflared tunnel route dns hermes-n8n n8n.<domain>
   cloudflared tunnel list
   ```
+- If the hostname's DNS is already managed by Terraform, do not use
+  `cloudflared tunnel route dns`; add the proxied CNAME
+  `<tunnel-uuid>.cfargotunnel.com` in the DNS repo and apply through the
+  domain-scoped `cftf`/`cfapply` flow.
 - Treat controller `cert.pem` as account-scoped and sensitive. It is created by
   `cloudflared tunnel login` and should stay on the controller.
 - Treat `~/.cloudflared/<tunnel-uuid>.json` as tunnel-specific credentials.
@@ -603,7 +606,10 @@ Before Hermes env values are configured and the service is enabled, `hermes-vps 
   - env: `/etc/n8n/.env` (secret-bearing; never commit)
   - data: `/var/lib/n8n`
 - The n8n role is gated by `install_n8n`; service state is gated by `n8n_enable_service`.
-- The role creates `/etc/n8n/.env` only if missing and refuses startup while `N8N_ENCRYPTION_KEY` is unset or still `__SET_ME__`.
+- The role creates `/etc/n8n/.env` only if missing and refuses startup while
+  `N8N_ENCRYPTION_KEY` or `N8N_USER_MANAGEMENT_JWT_SECRET` is unset or still
+  `__SET_ME__`. Run once with `n8n_enable_service: false`, generate both
+  secrets on the VPS without printing them, then set `n8n_enable_service: true`.
 - Public production webhooks should use the Cloudflare Tunnel path when possible:
   - create a locally managed Cloudflare Tunnel and route DNS to it
   - keep n8n bound to `127.0.0.1:5678`
