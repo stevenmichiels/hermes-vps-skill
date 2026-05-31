@@ -37,8 +37,8 @@ you need them:
 1. Provision the VPS with Terraform.
 2. Apply the base Ansible hardening.
 3. Verify SSH/Tailscale access and `hermes-vps status`.
-4. Add Hermes, Codex/Claude helpers, Firecrawl, n8n, or NoMachine only when
-   needed.
+4. Add Hermes and optional services such as Codex/Claude helpers, Firecrawl,
+   n8n, or NoMachine only when needed.
 5. Expose only production webhooks through Cloudflare Tunnel.
 
 ## Current Readiness Model
