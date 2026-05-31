@@ -16,12 +16,14 @@ trap cleanup EXIT
 mkdir -p "$BACKUP_DIR"
 
 docker run --rm \
+  --user "{{ n8n_container_uid }}:{{ n8n_container_gid }}" \
   -v "${N8N_DATA_DIR}:/data" \
   "$SQLITE_IMAGE" \
   sqlite3 /data/database.sqlite ".backup '/data/$(basename "$TMP_DB")'"
 
 INTEGRITY_RESULT="$(
   docker run --rm \
+    --user "{{ n8n_container_uid }}:{{ n8n_container_gid }}" \
     -v "${N8N_DATA_DIR}:/data" \
     "$SQLITE_IMAGE" \
     sqlite3 "/data/$(basename "$TMP_DB")" "PRAGMA integrity_check;"
