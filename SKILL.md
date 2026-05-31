@@ -111,9 +111,10 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 
 ## Controller machine discipline
 - When work continues from a different controller machine, rediscover local state instead of assuming previous inventory, SSH keys, shell aliases, Terraform env vars, or `known_hosts` entries exist.
-- Prefer `tailscale ssh hermes-vps '<command>'` for read-only operator checks when the controller is already on the tailnet and the VPS has Tailscale SSH enabled.
+- Prefer `tailscale ssh <admin_user>@hermes-vps '<command>'` for read-only operator checks when the controller is already on the tailnet and the VPS has Tailscale SSH enabled. The bare `tailscale ssh hermes-vps ...` form uses the local controller username and fails if that user does not exist on the VPS.
 - Do not create a new SSH key just because ordinary `ssh hermes-vps` fails. If Tailscale SSH works, keep using it unless Ansible or another tool explicitly needs standard SSH.
 - Do not edit `known_hosts` to work around a host-key verification failure unless the operator explicitly approves that cleanup; stale host keys can be expected after a rebuild or IP reuse.
+- If `tailscale ssh hermes-vps` fails host-key checking but ordinary `ssh hermes-vps` connects to the Tailscale IP and `ansible -i templates/ansible/inventory.ini vps -m ping` succeeds, check `sudo tailscale debug prefs` on the VPS. If `RunSSH=false`, this is not a stale local `known_hosts` problem; Tailscale SSH is disabled. Prefer ordinary SSH for Ansible/operator work unless Steven explicitly chooses the Tailscale SSH access model.
 - If Ansible must run from the new controller, create or restore ignored local files deliberately (`inventory.ini`, `vars/local.yml`, Terraform vars) and validate connectivity before applying.
 
 ## Controller SSH key rotation
@@ -136,14 +137,15 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - SSH helpers are optional controller-local convenience only; do not make the tracked skill depend on machine-specific shell aliases.
 - Keep helpers in the controller user's shell config, not in this repo. A minimal zsh pattern is:
   ```bash
-  hermes-ssh() { tailscale ssh hermes-vps "$@"; }
-  hermes-status() { tailscale ssh hermes-vps 'sudo hermes-vps status'; }
+  export HERMES_VPS_SSH_TARGET='<admin_user>@hermes-vps'
+  hermes-ssh() { tailscale ssh "$HERMES_VPS_SSH_TARGET" "$@"; }
+  hermes-status() { tailscale ssh "$HERMES_VPS_SSH_TARGET" 'sudo hermes-vps status'; }
   ```
 - Validate helpers before relying on them:
   - `hermes-ssh 'hostname && whoami'`
   - `hermes-status`
 - For operator checks, helpers may wrap Tailscale SSH. For normal Ansible applies, still use deliberate ignored local inventory/vars and the documented validation flow.
-- If a helper fails but `tailscale ssh hermes-vps '<command>'` works, prefer fixing the local helper over changing VPS SSH configuration.
+- If a helper fails but `tailscale ssh <admin_user>@hermes-vps '<command>'` works, prefer fixing the local helper over changing VPS SSH configuration.
 
 ## Termius and SSH clients
 - Termius should use normal SSH over the Tailscale network, not a public SSH exception.
