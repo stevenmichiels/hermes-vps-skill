@@ -49,7 +49,7 @@ if [ -d /var/lib/windmill ]; then
 fi
 
 cd /
-if [ "${#backup_paths[@]}" -eq 0 ]; then
+if [ -z "${backup_paths[*]:-}" ]; then
   printf 'backup_failed=no_paths_found\n' >&2
   exit 1
 fi
