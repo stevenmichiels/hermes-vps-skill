@@ -123,6 +123,7 @@
     hermes_backup_offbox_enabled: false
     hermes_backup_offbox_target: ""
     hermes_backup_offbox_state_file: "/var/lib/hermes-vps-monitor/last-offbox-ok"
+    hermes_backup_offbox_pending_file: "/var/lib/hermes-vps-monitor/offbox-retry-pending"
     hermes_backup_offbox_max_age_hours: 36
 
     # Optional private Firecrawl stack.

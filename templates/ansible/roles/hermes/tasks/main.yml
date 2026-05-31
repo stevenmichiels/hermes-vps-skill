@@ -58,10 +58,11 @@
       - hermes_backup_offbox_target | length > 0
       - hermes_backup_offbox_target is search(':')
       - hermes_backup_offbox_state_file is match('^/')
+      - hermes_backup_offbox_pending_file is match('^/')
       - hermes_backup_offbox_max_age_hours | int > 0
     fail_msg: >
       Set hermes_backup_offbox_target to an rsync-over-SSH target such as
-      user@host:/path and set an absolute hermes_backup_offbox_state_file before
+      user@host:/path and set absolute off-box state/pending file paths before
       enabling off-box backups.
   when: hermes_backup_offbox_enabled | bool
 

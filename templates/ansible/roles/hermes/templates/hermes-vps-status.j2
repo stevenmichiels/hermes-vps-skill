@@ -9,6 +9,7 @@ DASHBOARD_ENABLED="{{ (hermes_dashboard_enabled | bool) | ternary('true', 'false
 BACKUP_DIR="{{ hermes_backup_dir }}"
 BACKUP_OFFBOX_ENABLED="{{ (hermes_backup_offbox_enabled | bool) | ternary('true', 'false') }}"
 BACKUP_OFFBOX_STATE_FILE="{{ hermes_backup_offbox_state_file }}"
+BACKUP_OFFBOX_PENDING_FILE="{{ hermes_backup_offbox_pending_file }}"
 BACKUP_OFFBOX_MAX_AGE_HOURS="{{ hermes_backup_offbox_max_age_hours }}"
 HERMES_IMAGE="{{ hermes_image }}"
 HERMES_DATA_DIR="{{ hermes_data_dir }}"
@@ -228,6 +229,9 @@ fi
 
 warn "backup_retention_prune_disabled_until_offbox_copy"
 if [ "$BACKUP_OFFBOX_ENABLED" = "true" ]; then
+  if [ -f "$BACKUP_OFFBOX_PENDING_FILE" ]; then
+    warn "backup_offbox_retry_pending=$BACKUP_OFFBOX_PENDING_FILE"
+  fi
   if [ -f "$BACKUP_OFFBOX_STATE_FILE" ]; then
     offbox_age="$(( ($(date +%s) - $(stat -c %Y "$BACKUP_OFFBOX_STATE_FILE")) / 3600 ))"
     if [ "$offbox_age" -le "$BACKUP_OFFBOX_MAX_AGE_HOURS" ]; then

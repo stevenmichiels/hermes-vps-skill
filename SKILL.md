@@ -374,6 +374,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - `hermes_backup_offbox_enabled` (default: `false`; opt-in rsync-over-SSH copy and checksum verification)
 - `hermes_backup_offbox_target` (required when enabled; format `user@host:/path`)
 - `hermes_backup_offbox_state_file` (default: `/var/lib/hermes-vps-monitor/last-offbox-ok`)
+- `hermes_backup_offbox_pending_file` (default: `/var/lib/hermes-vps-monitor/offbox-retry-pending`; records the archive to retry when the target is unavailable)
 - `hermes_backup_offbox_max_age_hours` (default: `36`; status fails when the last verified off-box copy is older)
 - Timer toggles: `hermes_backup_timer_enabled`, `hermes_docker_cleanup_timer_enabled`, `hermes_release_check_timer_enabled`, `hermes_healthcheck_timer_enabled`
 - Firecrawl knobs:
@@ -574,7 +575,7 @@ Before Hermes env values are configured and the service is enabled, `hermes-vps 
   - `sudo docker compose --env-file /etc/windmill/.env -f /etc/windmill/docker-compose.yml ps`
 - Backup and restore evidence:
   - `sudo hermes-vps backup`
-  - `sudo hermes-vps backup-offbox` should report disabled until `hermes_backup_offbox_enabled=true`; when enabled, it must upload and checksum-verify the archive.
+  - `sudo hermes-vps backup-offbox` should report disabled until `hermes_backup_offbox_enabled=true`; when enabled, it must upload and checksum-verify the archive. If the target is unavailable, it writes the retry-pending file and the next run retries that archive.
   - `sudo tar -tzf /var/backups/hermes-vps/latest.tar.gz | grep -E '^(etc/hermes|var/lib/hermes|etc/firecrawl|etc/n8n|var/lib/n8n|etc/windmill|var/lib/windmill)' | head`
 - Terraform safety before infra changes:
   - run `hctf -chdir=templates/infra plan -input=false`

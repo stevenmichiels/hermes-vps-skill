@@ -6,6 +6,7 @@ BACKUP_DIR="{{ hermes_backup_dir }}"
 OFFBOX_ENABLED="{{ (hermes_backup_offbox_enabled | bool) | ternary('true', 'false') }}"
 OFFBOX_TARGET="{{ hermes_backup_offbox_target }}"
 STATE_FILE="{{ hermes_backup_offbox_state_file }}"
+PENDING_FILE="{{ hermes_backup_offbox_pending_file }}"
 
 quote_remote() {
   printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
@@ -21,9 +22,30 @@ if [[ ! "$OFFBOX_TARGET" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9._-]+:/[A-Za-z0-9._~/%+
   exit 2
 fi
 
+mark_pending() {
+  reason="$1"
+  state_dir="$(dirname "$PENDING_FILE")"
+  mkdir -p "$state_dir"
+  tmp_pending="$(mktemp "${state_dir}/offbox-retry-pending.XXXXXX")"
+  {
+    printf 'timestamp=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf 'archive=%s\n' "$archive"
+    printf 'target=%s\n' "$OFFBOX_TARGET"
+    printf 'reason=%s\n' "$reason"
+  } > "$tmp_pending"
+  chmod 0600 "$tmp_pending"
+  mv "$tmp_pending" "$PENDING_FILE"
+  printf 'backup_offbox_retry_pending=%s\n' "$archive" >&2
+}
+
 archive="${1:-}"
 if [ -z "$archive" ]; then
-  archive="$(readlink -f "${BACKUP_DIR}/latest.tar.gz")"
+  if [ -f "$PENDING_FILE" ]; then
+    archive="$(awk -F= '$1 == "archive" { print substr($0, index($0, "=") + 1); exit }' "$PENDING_FILE")"
+  fi
+  if [ -z "$archive" ]; then
+    archive="$(readlink -f "${BACKUP_DIR}/latest.tar.gz")"
+  fi
 fi
 
 if [ ! -f "$archive" ]; then
@@ -40,12 +62,24 @@ local_sha="$(sha256sum "$archive" | awk '{print $1}')"
 remote_dir_q="$(quote_remote "$remote_dir")"
 base_q="$(quote_remote "$base")"
 
-ssh "$remote" "mkdir -p $remote_dir_q"
-rsync -az --checksum "$archive" "${remote}:${remote_dir}/"
-remote_sha="$(ssh "$remote" "cd $remote_dir_q && sha256sum $base_q" | awk '{print $1}')"
+if ! ssh "$remote" "mkdir -p $remote_dir_q"; then
+  mark_pending "remote_mkdir_failed"
+  exit 1
+fi
+
+if ! rsync -az --checksum "$archive" "${remote}:${remote_dir}/"; then
+  mark_pending "rsync_failed"
+  exit 1
+fi
+
+if ! remote_sha="$(ssh "$remote" "cd $remote_dir_q && sha256sum $base_q" | awk '{print $1}')"; then
+  mark_pending "remote_checksum_failed"
+  exit 1
+fi
 
 if [ "$local_sha" != "$remote_sha" ]; then
   printf 'checksum_mismatch local=%s remote=%s archive=%s\n' "$local_sha" "$remote_sha" "$base" >&2
+  mark_pending "checksum_mismatch"
   exit 1
 fi
 
@@ -60,6 +94,7 @@ tmp_state="$(mktemp "${state_dir}/last-offbox-ok.XXXXXX")"
 } > "$tmp_state"
 chmod 0600 "$tmp_state"
 mv "$tmp_state" "$STATE_FILE"
+rm -f "$PENDING_FILE"
 
 printf 'backup_offbox_uploaded=%s\n' "$base"
 printf 'backup_offbox_verified_sha256=%s\n' "$local_sha"

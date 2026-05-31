@@ -482,6 +482,12 @@ transport is configured and verified. In that state, `hermes-vps status` warns
 with `backup_retention_prune_disabled_until_offbox_copy` and
 `backup_offbox_disabled`.
 
+For a personal setup, a Mac on the same Tailscale network is a valid off-box
+target when it receives the already encrypted artifacts via rsync over SSH.
+If that target is unavailable, the backup command keeps the local archive and
+writes an off-box retry-pending marker so the next run can retry before local
+retention pruning is restored.
+
 If the VPS is lost, the expected recovery path is:
 
 1. Recreate infrastructure with Terraform.

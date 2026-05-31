@@ -49,7 +49,9 @@ mv "$TMP_ARCHIVE" "$ARCHIVE"
 ln -sfn "$(basename "$ARCHIVE")" "${BACKUP_DIR}/latest.tar.gz"
 
 if [ "$OFFBOX_ENABLED" = "true" ]; then
-  /usr/local/sbin/hermes-vps-backup-offbox "$ARCHIVE"
+  if ! /usr/local/sbin/hermes-vps-backup-offbox "$ARCHIVE"; then
+    printf 'backup_offbox_retry_pending=%s\n' "$ARCHIVE"
+  fi
 fi
 
 printf 'backup_created=%s\n' "$ARCHIVE"
