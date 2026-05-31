@@ -21,6 +21,13 @@ FIRECRAWL_COMPOSE_FILE="{{ firecrawl_compose_file }}"
 FIRECRAWL_ENV_FILE="{{ firecrawl_env_file }}"
 FIRECRAWL_API_PORT="{{ firecrawl_api_port }}"
 FIRECRAWL_HERMES_NETWORK="{{ firecrawl_hermes_network | default('hermes_default') }}"
+INSTALL_N8N="{{ (install_n8n | bool) | ternary('true', 'false') }}"
+N8N_ENABLE_SERVICE="{{ (n8n_enable_service | bool) | ternary('true', 'false') }}"
+N8N_COMPOSE_FILE="{{ n8n_compose_file | default('/etc/n8n/docker-compose.yml') }}"
+N8N_BIND_ADDRESS="{{ n8n_bind_address | default('127.0.0.1') }}"
+N8N_HOST_PORT="{{ n8n_host_port | default(5678) }}"
+INSTALL_CLOUDFLARED="{{ (install_cloudflared | bool) | ternary('true', 'false') }}"
+CLOUDFLARED_ENABLE_SERVICE="{{ (cloudflared_enable_service | bool) | ternary('true', 'false') }}"
 INSTALL_WINDMILL="{{ (install_windmill | bool) | ternary('true', 'false') }}"
 WINDMILL_ENABLE_SERVICE="{{ (windmill_enable_service | bool) | ternary('true', 'false') }}"
 WINDMILL_COMPOSE_FILE="{{ windmill_compose_file | default('/etc/windmill/docker-compose.yml') }}"
@@ -139,6 +146,42 @@ if [ "$INSTALL_FIRECRAWL" = "true" ]; then
     fi
   else
     warn "firecrawl_service_disabled"
+  fi
+fi
+
+if [ "$INSTALL_N8N" = "true" ]; then
+  if [ -f "$N8N_COMPOSE_FILE" ]; then
+    ok "n8n_compose_file_present=$N8N_COMPOSE_FILE"
+  else
+    fail "n8n_compose_file_missing=$N8N_COMPOSE_FILE"
+  fi
+
+  if [ "$N8N_ENABLE_SERVICE" = "true" ]; then
+    if curl -fsS "http://${N8N_BIND_ADDRESS}:${N8N_HOST_PORT}/healthz" >/tmp/hermes-vps-n8n-health.json 2>/dev/null; then
+      ok "n8n_healthz=$(cat /tmp/hermes-vps-n8n-health.json)"
+    else
+      fail "n8n_healthz_unreachable"
+    fi
+
+    if docker compose -f "$N8N_COMPOSE_FILE" ps --services --filter status=running 2>/dev/null | grep -qx n8n; then
+      ok "n8n_container_running"
+    else
+      fail "n8n_container_not_running"
+    fi
+  else
+    warn "n8n_service_disabled"
+  fi
+fi
+
+if [ "$INSTALL_CLOUDFLARED" = "true" ]; then
+  if [ "$CLOUDFLARED_ENABLE_SERVICE" = "true" ]; then
+    if systemctl is-active --quiet cloudflared; then
+      ok "cloudflared_service_active"
+    else
+      fail "cloudflared_service_not_active"
+    fi
+  else
+    warn "cloudflared_service_disabled"
   fi
 fi
 

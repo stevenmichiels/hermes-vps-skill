@@ -26,6 +26,8 @@
   target, such as a Mac over Tailscale, does not discard the local archive.
 - Restore Hermes backup retention pruning only when a fresh verified off-box
   state file exists.
+- Extend `hermes-vps status` with gated n8n health/container checks and a
+  gated `cloudflared` service-active check.
 - Document n8n encrypted SQLite restore dry runs, live restore steps, and a
   disposable-credential decrypt proof that avoids printing credential values.
 - Add an opt-in private n8n role that is disabled by default, binds to loopback

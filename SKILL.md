@@ -571,6 +571,11 @@ Before Hermes env values are configured and the service is enabled, `hermes-vps 
 - n8n when enabled:
   - `curl -fsS http://127.0.0.1:5678/healthz || curl -fsSI http://127.0.0.1:5678`
   - `sudo docker compose -f /etc/n8n/docker-compose.yml ps`
+  - `sudo hermes-vps status` should include `n8n_healthz` and
+    `n8n_container_running`
+- Cloudflare Tunnel when enabled:
+  - `systemctl is-active cloudflared`
+  - `sudo hermes-vps status` should include `cloudflared_service_active`
 - Windmill when enabled:
   - `curl -fsS http://127.0.0.1:8000`
   - `sudo docker compose --env-file /etc/windmill/.env -f /etc/windmill/docker-compose.yml ps`

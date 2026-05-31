@@ -56,7 +56,8 @@ production VPS configuration.
 - Optional NoMachine/XFCE remote desktop restricted to the Tailscale access boundary.
 - Separated VPS zones for live app runtimes, staging, operator repos, agent
   workspaces, service installs, and backups.
-- Operational checks for status, health, backups, releases, Docker cleanup, and timers.
+- Operational checks for status, health, backups, releases, Docker cleanup,
+  timers, optional n8n, and optional Cloudflare Tunnel.
 - Optional rsync-over-SSH off-box backup verification gate before local
   retention pruning is re-enabled.
 - Recoverable VPS model with backups and a documented restore path.
