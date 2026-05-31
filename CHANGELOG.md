@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v1.0.0 - 2026-05-31
+
+v1.0.0 marks the first deployment-ready shape of `dual-agent-vps` as a private
+automation workbench. It keeps the hardened headless VPS and operator layer as
+the default, treats Hermes Agent as an optional app profile, and stabilizes the
+post-v0.4 architecture around proven backup, restore, off-box verification,
+health monitoring, and clear service boundaries.
+
 - Clarify that the base private workbench is the center of the project, with
   Hermes Agent as a first-class optional app profile rather than the default
   conceptual center.
@@ -12,6 +20,26 @@
   operator coverage.
 - Make `/etc/hermes-vps/.env` the sole source for VPS operator Telegram health
   alerts by removing the legacy fallback to the Hermes app env file.
+- Keep the existing `hermes-vps` command and systemd timer names as the runtime
+  operator surface, avoiding live-system churn while cleaning up the Ansible
+  role tree.
+- Reduce Hermes-first wording in README/SKILL docs while keeping historical
+  `hermes-vps` runtime names, variables, paths, and app-specific instructions
+  stable.
+- Live-validate the `vps_ops` split on the VPS with healthy status/healthcheck
+  runs, fresh off-box backup verification, and guarded retention pruning.
+
+Validation:
+
+- `git diff --check`
+- `ansible-playbook -i inventory.ini.example site.yml --syntax-check`
+- `ansible-playbook -i inventory.ini site.yml --syntax-check`
+- `ansible-playbook -i inventory.ini site.yml --check --tags vps_ops`
+- `ansible-playbook -i inventory.ini site.yml --tags vps_ops`
+- `hermes-vps status`
+- `hermes-vps healthcheck`
+- Public-clean scan for private domains, Tailscale host IPs, age keys,
+  private-key headers, and non-placeholder n8n encryption keys.
 
 ## v0.4.0 - 2026-05-31
 

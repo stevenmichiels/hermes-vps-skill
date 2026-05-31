@@ -5,8 +5,8 @@ Run agentic coding workflows from a hardened VPS instead of your laptop.
 This skill provisions a private Hetzner workbench for agentic coding and
 automation. The base layer is hardened SSH/Tailscale access, Docker, the
 `vps_ops` operator role, backups, health checks, and separated workspaces.
-Hermes Agent is a first-class optional app profile alongside Claude Code, Codex
-CLI, Firecrawl, n8n, optional Cloudflare Tunnel webhook ingress, MCP tooling,
+Optional app and tooling profiles include Claude Code, Codex CLI, Firecrawl,
+n8n, an agent gateway, optional Cloudflare Tunnel webhook ingress, MCP tooling,
 tmux, and SSH/Tailscale-based remote development.
 
 It is built for people who want their AI coding agents to run close to their
@@ -15,9 +15,8 @@ auditable, private-by-default environment.
 
 Under the hood it uses Terraform, Ansible, Docker Compose, system-wide
 `uv`/`uvx`, separated workbench directories, the `vps_ops` role for health
-checks, backups, release checks, and Docker cleanup, optional Hermes, Firecrawl,
-and n8n deployments,
-optional Cloudflare Tunnel ingress for n8n production webhooks, and an opt-in
+checks, backups, release checks, and Docker cleanup, optional service
+deployments, optional Cloudflare Tunnel ingress for n8n production webhooks, and an opt-in
 NoMachine/XFCE remote desktop profile.
 
 The base workbench installs `uv` and `uvx` system-wide by default for fast,
@@ -41,7 +40,7 @@ you need them:
 2. Apply the base Ansible hardening.
 3. Verify SSH/Tailscale access, create the first `hermes-vps backup`, then run
    `hermes-vps status`.
-4. Add Hermes Agent, Codex/Claude helpers, Firecrawl, n8n, or NoMachine only
+4. Add Codex/Claude helpers, Firecrawl, n8n, an agent gateway, or NoMachine only
    when needed.
 5. Expose only production webhooks through Cloudflare Tunnel.
 
@@ -54,7 +53,7 @@ routes, SSH, raw VPS ports, and SQLite database stay private behind
 SSH/Tailscale and host-local paths.
 
 The backup chain is designed as a closed loop: n8n SQLite is backed up online,
-included in age-encrypted `hermes-vps` backup artifacts, copied off-box with
+included in age-encrypted VPS backup artifacts, copied off-box with
 rsync-over-SSH, verified end-to-end with SHA-256, and only then allowed to
 reenable local retention pruning. Restore is not just documented; the runbook
 includes isolated checks for database integrity and decrypted n8n credentials
@@ -66,8 +65,10 @@ optional n8n container state, and optional `cloudflared` service state, with
 Telegram health alerts loaded from `/etc/hermes-vps/.env` for drift detection.
 
 See `CHANGELOG.md` and the
+[v1.0.0 release notes](https://github.com/stevenmichiels/dual-agent-vps/releases/tag/v1.0.0)
+for the deployment-ready workbench baseline. The
 [v0.4.0 release notes](https://github.com/stevenmichiels/dual-agent-vps/releases/tag/v0.4.0)
-for the public-webhook/private-editor n8n milestone.
+remain the public-webhook/private-editor n8n milestone.
 
 ## Before You Fork or Use This
 
@@ -88,17 +89,17 @@ for the public-webhook/private-editor n8n milestone.
 - Private by default: narrow bootstrap SSH, then Tailscale-only SSH.
 - Hardened base setup with firewalling and basic intrusion protection.
 - Reviewable infrastructure through Terraform and Ansible.
-- Optional Hermes gateway ports bound to loopback unless public exposure is explicitly accepted.
-- Optional private Firecrawl stack attached to the Hermes Docker network by
-  alias for Hermes integrations.
+- Optional app gateway/dashboard ports bound to loopback unless public exposure is explicitly accepted.
+- Optional private Firecrawl stack with private Docker-network wiring for app
+  integrations.
 - Optional private n8n stack bound to loopback or a Tailscale address.
 - Optional Cloudflare Tunnel ingress for n8n `/webhook/` only, without opening
   public `80`, `443`, or `5678` on the VPS.
 - Optional NoMachine/XFCE remote desktop restricted to the Tailscale access boundary.
 - Separated VPS zones for live app runtimes, staging, operator repos, agent
   workspaces, service installs, and backups.
-- VPS operator commands live in their own role and do not require the Hermes
-  Agent app to be installed.
+- VPS operator commands live in their own role and do not require any optional
+  app to be installed.
 - One-command status checks for health, backups, off-box freshness, guarded
   pruning, releases, Docker cleanup, timers, optional n8n, and optional
   Cloudflare Tunnel.
@@ -122,8 +123,8 @@ Hetzner VPS
 |-- Tailscale-only SSH for operators
 |-- optional NoMachine/XFCE desktop over Tailscale
 |-- hermes-vps operator commands, backups, health checks, and timers
-|-- optional Hermes Agent container
-|-- /var/lib/hermes persistent Hermes state when Hermes is enabled
+|-- optional agent gateway container
+|-- optional agent gateway state under /var/lib/hermes
 |-- optional private Firecrawl stack
 |-- optional private n8n stack
 |-- optional cloudflared tunnel for n8n /webhook/ only
@@ -144,8 +145,8 @@ repeatable rebuilds, private secrets, health checks, backups, and a clear
 recovery path when the VPS disappears or the runtime changes.
 
 This skill turns that into a reusable workflow. It gives an agent enough
-structure to provision the box, harden it, add optional services such as Hermes
-Agent, Firecrawl, or n8n, and verify that the result is actually usable.
+structure to provision the box, harden it, add optional automation services,
+and verify that the result is actually usable.
 
 ## Why This Matters for AI Agents
 
@@ -162,7 +163,7 @@ reviewable, and reversible.
 
 - Repeatable infrastructure instead of click-by-click server setup.
 - SSH guardrails: narrow bootstrap access first, then Tailscale-only SSH.
-- Private-by-default service binds for Hermes gateway/dashboard, Firecrawl API,
+- Private-by-default service binds for optional app gateway/dashboard, Firecrawl API,
   and n8n.
 - Secret-safe runtime setup with placeholder env templates and explicit "do not commit" rules.
 - One-command operator checks through `hermes-vps status`, including optional
@@ -171,9 +172,9 @@ reviewable, and reversible.
 - Scheduled backups, Docker cleanup, stable release checks, and health transition alerts.
 - Restore runbook for a fresh VPS rebuild from backup, including isolated n8n
   SQLite and credential-decrypt proof steps.
-- Source-controlled Hermes runtime skill templates, including a private Firecrawl workflow skill.
+- Source-controlled optional app runtime skill templates, including a private Firecrawl workflow skill.
 - Managed parent directories for co-hosting Claude Code CLI, Codex CLI, OpenClaw,
-  Hermes, repos, app runtimes, and backups without mixing them into one
+  repos, app runtimes, and backups without mixing them into one
   root-owned workspace.
 - Local config examples so the public skill can stay generic while private
   machine/account values stay ignored.
@@ -232,7 +233,7 @@ services.
 
 ## Supply Chain Notes
 
-- The Hermes Agent Docker image is pinned to an explicit release tag by
+- The optional agent gateway Docker image is pinned to an explicit release tag by
   default. Do not switch it to `latest` unless you intentionally accept
   floating runtime behavior.
 - Optional Firecrawl image variables default to upstream `latest` tags because
@@ -257,9 +258,9 @@ services.
 
 - Terraform templates for Hetzner server and firewall setup.
 - Ansible roles for base hardening, UFW/fail2ban, Docker, `vps_ops` operator
-  commands/backups/health checks/timers, optional Hermes Agent, optional
+  commands/backups/health checks/timers, optional agent gateway, optional
   NoMachine/XFCE remote desktop, optional Firecrawl, and optional n8n.
-- Source-controlled Hermes runtime skill templates under `templates/hermes-skills/`.
+- Source-controlled optional app runtime skill templates under `templates/hermes-skills/`.
 - Source-controlled Codex and Claude skill templates under
   `templates/codex-skills/` and `templates/claude-skills/`.
 - A restore runbook in `references/restore.md`, including n8n encrypted
@@ -303,10 +304,10 @@ Suggested concrete layout once real app and repo names are known:
 /var/backups
 ```
 
-Firecrawl is an optional private service zone, not a subdirectory of Hermes.
-The Firecrawl API is attached to the Hermes Docker network only so Hermes can
-call it privately through the `firecrawl` alias; its compose file and env live
-outside Hermes under `/opt/firecrawl` and `/etc/firecrawl`.
+Firecrawl is an optional private service zone, not a subdirectory of another
+app profile. Its API can be attached to the app Docker network for private
+in-container calls through the `firecrawl` alias; its compose file and env live
+under `/opt/firecrawl` and `/etc/firecrawl`.
 
 Codex CLI can also use the private Firecrawl service from the VPS host through
 `http://127.0.0.1:3002`. The preferred integration is a user-local Codex MCP
@@ -460,7 +461,7 @@ You need:
 - A Hetzner Cloud account and API token
 - SSH access from your local machine for bootstrap
 - Optional: Tailscale, strongly recommended for private ongoing SSH access
-- Optional: Telegram or another Hermes-supported gateway integration
+- Optional: Telegram gateway integration for the optional agent gateway
 - Optional: Firecrawl, if you enable private scrape/crawl/PDF extraction workflows
 - Optional: n8n, if you enable private workflow automation experiments
 - Optional: Cloudflare Tunnel, if you expose n8n production webhooks while
@@ -511,18 +512,18 @@ config files, credentials, an inspected Terraform plan, and an explicit apply.
 4. Run `terraform apply` locally only if the plan matches your intent.
 5. Update the Ansible inventory with the bootstrap VPS IP first, then the Tailscale hostname/IP after private access is enabled.
 6. Run the Ansible playbook locally against the VPS.
-7. Configure Hermes runtime secrets on the VPS.
-8. Enable the Hermes service through Ansible.
+7. Optional: configure agent gateway runtime secrets on the VPS.
+8. Optional: enable the agent gateway service through Ansible.
 9. Verify the deployment on the VPS with `hermes-vps status`.
 10. Verify timers for backups, Docker cleanup, release checks, and health checks.
 11. Optional: enable NoMachine/XFCE remote desktop only after Tailscale SSH is stable.
-12. Optional: enable Firecrawl and validate the private Hermes-network alias with `hermes-vps status`.
+12. Optional: enable Firecrawl and validate the private network alias with `hermes-vps status`.
 13. Optional: enable n8n only after setting `N8N_ENCRYPTION_KEY` and
     `N8N_USER_MANAGEMENT_JWT_SECRET` on the VPS, then access it through an SSH
     tunnel or Tailscale bind.
 14. Optional: enable Cloudflare Tunnel for n8n production webhooks only after
     the locally managed tunnel and credentials file exist on the VPS.
-15. Optional: configure Hermes backup off-box transport with
+15. Optional: configure VPS backup off-box transport with
     `hermes_backup_offbox_enabled` and `hermes_backup_offbox_target` only after
     the remote rsync-over-SSH target and credentials are ready.
 
@@ -546,8 +547,8 @@ If the VPS is lost, the expected recovery path is:
 
 1. Recreate infrastructure with Terraform.
 2. Re-run Ansible.
-3. Restore Hermes state from backup.
-4. Re-check health, timers, gateway access, and optional Firecrawl access.
+3. Restore optional app state from backup.
+4. Re-check health, timers, gateway access, and optional service access.
 
 ## Local Files You Must Not Share
 
@@ -635,7 +636,7 @@ grep -F '<public-key-body>' ~/.ssh/authorized_keys >/dev/null && echo present
 
 It is normal for `authorized_keys` to contain multiple keys when both controller
 and phone/tablet access are enabled. After a successful login, rename the key in
-Termius to something clear such as `hermes-vps-phone`.
+Termius to something clear such as `vps-phone`.
 
 Password login stays disabled. Do not copy VPS secrets, runtime env files,
 Terraform state, or backups into Termius.

@@ -20,7 +20,7 @@ install_vps_ops: true
 # Optional Telegram health alerts can be configured on the VPS in
 # /etc/hermes-vps/.env after apply.
 
-# Optional Hermes Agent app. The service starts only after
+# Optional agent gateway app. The service starts only after
 # /var/lib/hermes/.env is configured.
 install_hermes: false
 hermes_enable_service: false
@@ -30,7 +30,7 @@ hermes_require_allowed_users: true
 # Optional dashboard; keep loopback-bound and use SSH tunnel/Tailscale.
 hermes_dashboard_enabled: false
 
-# Source-controlled Hermes runtime skills. Do not put secrets in this tree.
+# Source-controlled optional app runtime skills. Do not put secrets in this tree.
 hermes_runtime_skills_enabled: true
 
 # Python tooling baseline. Installs uv and uvx into /usr/local/bin.

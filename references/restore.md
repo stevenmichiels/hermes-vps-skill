@@ -1,6 +1,6 @@
 # hermes-vps Restore Runbook
 
-Use this when the VPS is replaceable infrastructure and Hermes state is restored from backup.
+Use this when the VPS is replaceable infrastructure and service state is restored from backup.
 
 ## Expected Backup Contents
 
@@ -13,10 +13,10 @@ Backups created by `hermes-vps backup` include:
 
 `/var/lib/hermes` contains Hermes secrets and state, including `.env`, `config.yaml`, sessions, memories, skills, logs, OAuth files, and pairing/authorization state. Keep backups private and encrypted when copied off the VPS.
 
-`/etc/firecrawl` contains Firecrawl runtime configuration and generated secrets, including `firecrawl.env`. The default Hermes backup does not include Firecrawl Docker volumes (`firecrawl_postgres-data`, `firecrawl_rabbitmq-data`, `firecrawl_redis-data`) because live database volume snapshots can be inconsistent. Preserve those separately with a cold Docker-volume backup if Firecrawl job history matters.
+`/etc/firecrawl` contains Firecrawl runtime configuration and generated secrets, including `firecrawl.env`. The default VPS backup does not include Firecrawl Docker volumes (`firecrawl_postgres-data`, `firecrawl_rabbitmq-data`, `firecrawl_redis-data`) because live database volume snapshots can be inconsistent. Preserve those separately with a cold Docker-volume backup if Firecrawl job history matters.
 
 `/etc/n8n` contains n8n runtime configuration and encryption material. The
-general Hermes `tar.gz` backup is secret-bearing and should not be treated as an
+general VPS `tar.gz` backup is secret-bearing and should not be treated as an
 encrypted artifact unless another layer encrypts it. Prefer the n8n online
 SQLite backup for n8n restore validation because it is age-encrypted and
 contains a consistent SQLite `.backup` output plus `/etc/n8n` and relevant
