@@ -47,6 +47,5 @@ chmod 0600 "$TMP_ARCHIVE"
 mv "$TMP_ARCHIVE" "$ARCHIVE"
 ln -sfn "$(basename "$ARCHIVE")" "${BACKUP_DIR}/latest.tar.gz"
 
-find "$BACKUP_DIR" -maxdepth 1 -type f -name 'hermes-vps-*.tar.gz' -mtime +"$RETENTION_DAYS" -delete
-
 printf 'backup_created=%s\n' "$ARCHIVE"
+printf 'backup_retention_prune=disabled_until_offbox_copy\n'
