@@ -210,7 +210,8 @@ services.
 - Source-controlled Hermes runtime skill templates under `templates/hermes-skills/`.
 - Source-controlled Codex and Claude skill templates under
   `templates/codex-skills/` and `templates/claude-skills/`.
-- A restore runbook in `references/restore.md`.
+- A restore runbook in `references/restore.md`, including n8n encrypted
+  SQLite restore checks and a disposable credential-decrypt probe.
 - Release notes in `CHANGELOG.md`.
 - Example config files for local deployment values.
 

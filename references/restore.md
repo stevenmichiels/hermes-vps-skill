@@ -146,10 +146,19 @@ docker exec n8n-restore-dryrun n8n export:credentials --all --decrypted --output
 
 If the restored database has no credentials, `export:credentials` may exit with
 "No credentials found". That proves the restore starts with the restored
-`N8N_ENCRYPTION_KEY`, but it does not prove credential decryption. Before using
-real credentials, create a disposable test credential, run a new encrypted
-backup, repeat this dry run, and verify a decrypted credential export succeeds
-without printing the exported secret values.
+`N8N_ENCRYPTION_KEY`, but it does not prove credential decryption. To prove
+credential decryption without exposing values, create a disposable HTTP Header
+Auth credential, run a fresh encrypted backup, repeat this dry run, export
+credentials with `--decrypted` to a temporary file, and assert only structure
+and count. The expected terminal output is only:
+
+```text
+credential_decrypt=ok credential_count=1
+```
+
+Remove the exported JSON file, restore container, decrypted workspace, and live
+disposable credential after the probe. Run a clean encrypted backup after
+cleanup so the newest n8n backup no longer contains the disposable credential.
 
 7. Clean up decrypted material:
 
