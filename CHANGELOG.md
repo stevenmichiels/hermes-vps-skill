@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v1.0.1 - 2026-05-31
+
+v1.0.1 is a documentation and operator-guidance patch for the v1.0.0 private
+workbench baseline. It clarifies the default SSH access model and captures the
+manual Ubuntu Pro / ESM Apps maintenance flow proven on the live VPS.
+
 - Document Ubuntu Pro / ESM Apps as an optional manual host-maintenance step,
   including pre-backup, token-handling, update, reboot, and post-healthcheck
   guidance.
