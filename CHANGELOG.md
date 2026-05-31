@@ -5,6 +5,8 @@
 - Document Ubuntu Pro / ESM Apps as an optional manual host-maintenance step,
   including pre-backup, token-handling, update, reboot, and post-healthcheck
   guidance.
+- Clarify that the default private access model is ordinary OpenSSH over the
+  Tailscale network, with Tailscale SSH disabled unless deliberately chosen.
 
 ## v1.0.0 - 2026-05-31
 

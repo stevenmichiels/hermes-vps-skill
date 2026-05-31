@@ -86,7 +86,7 @@ remain the public-webhook/private-editor n8n milestone.
 
 ## Design Goals
 
-- Private by default: narrow bootstrap SSH, then Tailscale-only SSH.
+- Private by default: narrow bootstrap SSH, then OpenSSH restricted to the Tailscale network.
 - Hardened base setup with firewalling and basic intrusion protection.
 - Reviewable infrastructure through Terraform and Ansible.
 - Optional app gateway/dashboard ports bound to loopback unless public exposure is explicitly accepted.
@@ -120,7 +120,7 @@ Controller machine
     `-- templates/ansible/vars/local.yml
 
 Hetzner VPS
-|-- Tailscale-only SSH for operators
+|-- OpenSSH for operators, restricted to the Tailscale network
 |-- optional NoMachine/XFCE desktop over Tailscale
 |-- hermes-vps operator commands, backups, health checks, and timers
 |-- optional agent gateway container
@@ -162,7 +162,7 @@ reviewable, and reversible.
 ## Added Value
 
 - Repeatable infrastructure instead of click-by-click server setup.
-- SSH guardrails: narrow bootstrap access first, then Tailscale-only SSH.
+- SSH guardrails: narrow bootstrap access first, then OpenSSH restricted to the Tailscale network.
 - Private-by-default service binds for optional app gateway/dashboard, Firecrawl API,
   and n8n.
 - Secret-safe runtime setup with placeholder env templates and explicit "do not commit" rules.
@@ -220,7 +220,7 @@ This template assumes:
 
 - A single-operator or small trusted-admin VPS, not a multi-tenant host.
 - A trusted controller machine for Terraform and Ansible runs.
-- A trusted Tailscale tailnet when Tailscale SSH is used for ongoing access.
+- A trusted Tailscale tailnet for ongoing OpenSSH access.
 - Loopback-bound optional service ports unless public exposure is explicitly accepted.
 - Optional remote desktop access through NoMachine over Tailscale, not public GUI ports.
 - Secret-bearing runtime files remain on the controller or VPS and are never committed.
@@ -368,7 +368,7 @@ install_remote_desktop: true
 install_nomachine: true
 ```
 
-Then rerun Ansible after Tailscale SSH is already stable. NoMachine is a
+Then rerun Ansible after OpenSSH over Tailscale is already stable. NoMachine is a
 proprietary free-for-personal-use package; keep that supply-chain decision
 explicit when enabling this profile.
 
@@ -516,7 +516,7 @@ config files, credentials, an inspected Terraform plan, and an explicit apply.
 8. Optional: enable the agent gateway service through Ansible.
 9. Verify the deployment on the VPS with `hermes-vps status`.
 10. Verify timers for backups, Docker cleanup, release checks, and health checks.
-11. Optional: enable NoMachine/XFCE remote desktop only after Tailscale SSH is stable.
+11. Optional: enable NoMachine/XFCE remote desktop only after OpenSSH over Tailscale is stable.
 12. Optional: enable Firecrawl and validate the private network alias with `hermes-vps status`.
 13. Optional: enable n8n only after setting `N8N_ENCRYPTION_KEY` and
     `N8N_USER_MANAGEMENT_JWT_SECRET` on the VPS, then access it through an SSH
@@ -638,13 +638,17 @@ network:
 - Use the non-root admin user configured in `templates/ansible/vars/local.yml`.
 - Authenticate with the private key matching `admin_authorized_keys`.
 
-If Tailscale SSH is enabled on the VPS, it may intercept port `22` before
-OpenSSH sees `authorized_keys`, causing Termius to hang on `Authenticating`.
-For Termius, keep Tailscale connected but disable the SSH intercept:
+The default private access model for this skill is OpenSSH over the Tailscale
+network. Keep Tailscale itself connected, but leave Tailscale SSH disabled
+unless you deliberately choose that separate access model:
 
 ```sh
 sudo tailscale set --ssh=false
 ```
+
+If Tailscale SSH is enabled on the VPS, it may intercept port `22` before
+OpenSSH sees `authorized_keys`, causing Termius to hang on `Authenticating`.
+For Termius, keep Tailscale connected but disable the SSH intercept.
 
 UFW and the Hetzner firewall should still keep SSH private to the Tailscale
 network.

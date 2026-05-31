@@ -111,8 +111,9 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 
 ## Controller machine discipline
 - When work continues from a different controller machine, rediscover local state instead of assuming previous inventory, SSH keys, shell aliases, Terraform env vars, or `known_hosts` entries exist.
-- Prefer `tailscale ssh <admin_user>@hermes-vps '<command>'` for read-only operator checks when the controller is already on the tailnet and the VPS has Tailscale SSH enabled. The bare `tailscale ssh hermes-vps ...` form uses the local controller username and fails if that user does not exist on the VPS.
-- Do not create a new SSH key just because ordinary `ssh hermes-vps` fails. If Tailscale SSH works, keep using it unless Ansible or another tool explicitly needs standard SSH.
+- The default private access model is ordinary OpenSSH over the Tailscale network, not Tailscale SSH. Keep Tailscale connected, but keep the Tailscale SSH intercept disabled unless Steven deliberately chooses that separate access model.
+- Prefer ordinary `ssh <admin_user>@<tailscale-ip-or-hostname>` for operator checks and Ansible. Use `tailscale ssh <admin_user>@hermes-vps '<command>'` only when the VPS has Tailscale SSH enabled on purpose. The bare `tailscale ssh hermes-vps ...` form uses the local controller username and fails if that user does not exist on the VPS.
+- Do not create a new SSH key just because ordinary `ssh hermes-vps` fails. First verify whether the hostname resolves to the intended Tailscale IP and whether `RunSSH=false` means the Tailscale SSH feature is simply disabled.
 - Do not edit `known_hosts` to work around a host-key verification failure unless the operator explicitly approves that cleanup; stale host keys can be expected after a rebuild or IP reuse.
 - If `tailscale ssh hermes-vps` fails host-key checking but ordinary `ssh hermes-vps` connects to the Tailscale IP and `ansible -i templates/ansible/inventory.ini vps -m ping` succeeds, check `sudo tailscale debug prefs` on the VPS. If `RunSSH=false`, this is not a stale local `known_hosts` problem; Tailscale SSH is disabled. Prefer ordinary SSH for Ansible/operator work unless Steven explicitly chooses the Tailscale SSH access model.
 - If Ansible must run from the new controller, create or restore ignored local files deliberately (`inventory.ini`, `vars/local.yml`, Terraform vars) and validate connectivity before applying.
@@ -138,17 +139,20 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - Keep helpers in the controller user's shell config, not in this repo. A minimal zsh pattern is:
   ```bash
   export HERMES_VPS_SSH_TARGET='<admin_user>@hermes-vps'
-  hermes-ssh() { tailscale ssh "$HERMES_VPS_SSH_TARGET" "$@"; }
-  hermes-status() { tailscale ssh "$HERMES_VPS_SSH_TARGET" 'sudo hermes-vps status'; }
+  hermes-ssh() { ssh "$HERMES_VPS_SSH_TARGET" "$@"; }
+  hermes-status() { ssh "$HERMES_VPS_SSH_TARGET" 'sudo hermes-vps status'; }
   ```
 - Validate helpers before relying on them:
   - `hermes-ssh 'hostname && whoami'`
   - `hermes-status`
-- For operator checks, helpers may wrap Tailscale SSH. For normal Ansible applies, still use deliberate ignored local inventory/vars and the documented validation flow.
-- If a helper fails but `tailscale ssh <admin_user>@hermes-vps '<command>'` works, prefer fixing the local helper over changing VPS SSH configuration.
+- For operator checks, helpers should use OpenSSH over the Tailscale hostname/IP by default. For normal Ansible applies, still use deliberate ignored local inventory/vars and the documented validation flow.
+- If a helper fails but direct `ssh <admin_user>@<tailscale-ip-or-hostname> '<command>'` works, prefer fixing the local helper over changing VPS SSH configuration.
 
 ## Termius and SSH clients
 - Termius should use normal SSH over the Tailscale network, not a public SSH exception.
+- The skill default is OpenSSH over Tailscale with Tailscale SSH disabled. Run
+  `sudo tailscale set --ssh=false` after joining the tailnet unless Tailscale
+  SSH was explicitly chosen as the access model.
 - Termius should use OpenSSH on the VPS over the Tailscale IP. If Tailscale SSH
   is enabled on the VPS with `tailscale up --ssh` or `tailscale set --ssh=true`,
   Tailscale may intercept port `22` before OpenSSH sees `authorized_keys`,
@@ -237,10 +241,10 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - After Tailscale is up, tighten rules to Tailscale-only in both UFW and the Hetzner firewall.
 
 ## Access discipline
-- Prefer Tailscale-only SSH.
+- Prefer OpenSSH restricted to the Tailscale network.
 - Avoid root login unless explicitly requested and still enabled for a bootstrap step.
 - Do not change SSH/80/443 public exposure without explicit approval.
-- A fresh rebuild is not complete until Tailscale SSH is proven and public bootstrap SSH is removed from both UFW and the Hetzner firewall.
+- A fresh rebuild is not complete until OpenSSH over Tailscale is proven and public bootstrap SSH is removed from both UFW and the Hetzner firewall.
 - Keep all service ports loopback-bound unless a public exposure decision is explicit. Prefer Cloudflare Tunnel for n8n public production webhooks so the VPS does not expose public `80`, `443`, or `5678`.
 - Keep remote desktop access on Tailscale through NoMachine; do not expose GUI ports publicly.
 - Do not reopen public SSH for Termius or another SSH client. Put the client device on the Tailscale tailnet and connect to the VPS Tailscale IP/hostname on port 22 as the non-root admin user with the configured SSH key.
@@ -491,15 +495,16 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
    - `disable_root_login=true`
    - rerun `ansible-playbook -i inventory.ini site.yml`
 6) Join Tailscale on the VPS:
-   - run `sudo tailscale up --ssh --hostname=hermes-vps`
+   - run `sudo tailscale up --hostname=hermes-vps`
    - approve the auth link
+   - run `sudo tailscale set --ssh=false` unless Tailscale SSH was explicitly chosen
    - validate SSH through the Tailscale IP before closing bootstrap SSH
-   - for operator checks from a tailnet-connected controller, prefer `tailscale ssh hermes-vps 'sudo hermes-vps status'`
+   - for operator checks from a tailnet-connected controller, prefer `ssh <admin_user>@<tailscale-ip-or-hostname> 'sudo hermes-vps status'`
 7) Close bootstrap SSH to Tailscale-only in both layers:
    - Terraform: set `ssh_source_ips = ["100.64.0.0/10"]`, plan, and apply only if the plan changes the firewall in place
    - Ansible inventory: set `ansible_host` to the Tailscale IP
    - Ansible vars: set `bootstrap_public_ssh_cidr: ""` and `bootstrap_public_ssh_cidr_cleanup: "<old public IP /32>"`
-   - rerun Ansible, then verify public SSH fails and Tailscale SSH still works
+   - rerun Ansible, then verify public SSH fails and OpenSSH over Tailscale still works
 8) Configure optional agent gateway secrets on the VPS:
    - edit `/var/lib/hermes/.env`, or
    - run `sudo docker compose -f /etc/hermes/docker-compose.yml run --rm hermes setup`
@@ -518,7 +523,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
    - Telegram `/start` or a direct message from an allowed user
 12) Optional remote desktop:
    - set `install_remote_desktop=true` and `install_nomachine=true`
-   - rerun Ansible only after Tailscale SSH is stable
+   - rerun Ansible only after OpenSSH over Tailscale is stable
    - connect with NoMachine to the Tailscale IP/hostname using protocol `NX`, port `4000`, username `admin_user`, and the matching private key
    - do not add public firewall rules for VNC, RDP, NoMachine, or X11
 13) Optional Firecrawl:

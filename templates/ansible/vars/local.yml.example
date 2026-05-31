@@ -11,7 +11,7 @@ admin_authorized_keys:
 vps_zone_dirs_enabled: true
 
 # First public bootstrap must use your current public IP /32.
-# Leave empty only after Tailscale SSH is proven and disable_root_login=true.
+# Leave empty only after OpenSSH over Tailscale is proven and disable_root_login=true.
 bootstrap_public_ssh_cidr: ""
 tailscale_ssh_source_cidr: "100.64.0.0/10"
 
