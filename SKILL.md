@@ -376,6 +376,7 @@ Provision and harden a Hetzner Cloud VPS in a repeatable, safe-by-default workfl
 - `hermes_backup_offbox_state_file` (default: `/var/lib/hermes-vps-monitor/last-offbox-ok`)
 - `hermes_backup_offbox_pending_file` (default: `/var/lib/hermes-vps-monitor/offbox-retry-pending`; records the archive to retry when the target is unavailable)
 - `hermes_backup_offbox_max_age_hours` (default: `36`; status fails when the last verified off-box copy is older)
+- `hermes_backup_retention_days` pruning runs only when off-box is enabled and the verified off-box state file is fresh.
 - Timer toggles: `hermes_backup_timer_enabled`, `hermes_docker_cleanup_timer_enabled`, `hermes_release_check_timer_enabled`, `hermes_healthcheck_timer_enabled`
 - Firecrawl knobs:
   - `firecrawl_enable_service` (default: `false`)

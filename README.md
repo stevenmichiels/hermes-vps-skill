@@ -477,9 +477,9 @@ config files, credentials, an inspected Terraform plan, and an explicit apply.
 The VPS is treated as replaceable infrastructure. Persistent state should live
 in backups, Git remotes, or explicitly documented storage paths.
 
-Local backup retention pruning is intentionally disabled until off-box
-transport is configured and verified. In that state, `hermes-vps status` warns
-with `backup_retention_prune_disabled_until_offbox_copy` and
+Local backup retention pruning runs only while off-box transport is enabled and
+the verified state file is fresh. Until then, `hermes-vps status` warns with
+`backup_retention_prune_disabled_until_offbox_copy` and, when applicable,
 `backup_offbox_disabled`.
 
 For a personal setup, a Mac on the same Tailscale network is a valid off-box

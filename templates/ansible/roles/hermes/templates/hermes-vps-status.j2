@@ -227,7 +227,7 @@ else
   fail "backup_latest_missing"
 fi
 
-warn "backup_retention_prune_disabled_until_offbox_copy"
+offbox_fresh=false
 if [ "$BACKUP_OFFBOX_ENABLED" = "true" ]; then
   if [ -f "$BACKUP_OFFBOX_PENDING_FILE" ]; then
     warn "backup_offbox_retry_pending=$BACKUP_OFFBOX_PENDING_FILE"
@@ -236,6 +236,7 @@ if [ "$BACKUP_OFFBOX_ENABLED" = "true" ]; then
     offbox_age="$(( ($(date +%s) - $(stat -c %Y "$BACKUP_OFFBOX_STATE_FILE")) / 3600 ))"
     if [ "$offbox_age" -le "$BACKUP_OFFBOX_MAX_AGE_HOURS" ]; then
       ok "backup_offbox_last_ok_age_hours=$offbox_age"
+      offbox_fresh=true
     else
       fail "backup_offbox_too_old_hours=$offbox_age"
     fi
@@ -244,6 +245,12 @@ if [ "$BACKUP_OFFBOX_ENABLED" = "true" ]; then
   fi
 else
   warn "backup_offbox_disabled"
+fi
+
+if [ "$offbox_fresh" = "true" ]; then
+  ok "backup_retention_prune_guarded_by_fresh_offbox_copy"
+else
+  warn "backup_retention_prune_disabled_until_offbox_copy"
 fi
 
 root_use="$(df -P / | awk 'NR==2 { gsub("%","",$5); print $5 }')"

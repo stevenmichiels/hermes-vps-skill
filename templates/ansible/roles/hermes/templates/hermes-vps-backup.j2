@@ -5,6 +5,8 @@ umask 077
 BACKUP_DIR="{{ hermes_backup_dir }}"
 RETENTION_DAYS="{{ hermes_backup_retention_days }}"
 OFFBOX_ENABLED="{{ (hermes_backup_offbox_enabled | bool) | ternary('true', 'false') }}"
+OFFBOX_STATE_FILE="{{ hermes_backup_offbox_state_file }}"
+OFFBOX_MAX_AGE_HOURS="{{ hermes_backup_offbox_max_age_hours }}"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 ARCHIVE="${BACKUP_DIR}/hermes-vps-${STAMP}.tar.gz"
 TMP_ARCHIVE="${ARCHIVE}.tmp"
@@ -54,5 +56,20 @@ if [ "$OFFBOX_ENABLED" = "true" ]; then
   fi
 fi
 
+offbox_fresh=false
+if [ "$OFFBOX_ENABLED" = "true" ] && [ -f "$OFFBOX_STATE_FILE" ]; then
+  offbox_age="$(( ($(date +%s) - $(stat -c %Y "$OFFBOX_STATE_FILE")) / 3600 ))"
+  if [ "$offbox_age" -le "$OFFBOX_MAX_AGE_HOURS" ]; then
+    offbox_fresh=true
+  fi
+fi
+
+if [ "$offbox_fresh" = "true" ]; then
+  find "$BACKUP_DIR" -maxdepth 1 -type f -name 'hermes-vps-*.tar.gz' -mtime +"$RETENTION_DAYS" -print -delete |
+    sed 's/^/backup_pruned=/'
+  printf 'backup_retention_prune=guarded_by_fresh_offbox_copy\n'
+else
+  printf 'backup_retention_prune=disabled_until_offbox_copy\n'
+fi
+
 printf 'backup_created=%s\n' "$ARCHIVE"
-printf 'backup_retention_prune=disabled_until_offbox_copy\n'

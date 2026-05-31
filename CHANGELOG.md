@@ -24,6 +24,8 @@
   retention-prune-disabled sentinel until off-box copy is configured.
 - Add an off-box retry-pending marker so a temporarily unavailable personal
   target, such as a Mac over Tailscale, does not discard the local archive.
+- Restore Hermes backup retention pruning only when a fresh verified off-box
+  state file exists.
 - Add an opt-in private n8n role that is disabled by default, binds to loopback
   or an explicit Tailscale IP only, persists `/var/lib/n8n`, creates
   `/etc/n8n/.env` without overwriting it, and refuses to start until
